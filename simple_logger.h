@@ -232,8 +232,8 @@ void sl_time_string_get(DateAndTime date_and_time, string_buffer* StringBuffer)
 
 //WIN32
 #if _WIN31
-   #define PrintC(Text,TextColor)  Win32PrintColor(Text, TextColor)
-   #define Print(Text)             write_string_to_console(Text)
+   #define sl_print_color(Text,TextColor)  Win32PrintColor(Text, TextColor)
+   #define sl_print(Text)                  write_string_to_console(Text)
 
 #define SL_CONSOLE_FOREGROUND_BLACK     0x0000
 #define SL_CONSOLE_FOREGROUND_BLUE      0x0001
@@ -266,3 +266,196 @@ void sl_time_string_get(DateAndTime date_and_time, string_buffer* StringBuffer)
 
 
 //END Print Color --------------
+
+//Win32 Specific --------------
+
+
+//NOTE: Does not support Black BG unless the console is already black.
+void sl_win32_print_color(char* text, WORD ColorAttributes)
+{
+    HANDLE StdOut;
+    CONSOLE_SCREEN_BUFFER_INFO ConsoleScreenBufferInfo;
+
+    //TODO:Maybe just attach in one central point when we
+    //choose to log to the console? Instead of calling AttachConsole over and over
+    // again here.
+    AttachConsole(ATTACH_PARENT_PROCESS);
+    StdOut = GetStdHandle(STD_OUTPUT_HANDLE); //STD_OUTPUT_HANDLE (DWORD)-11  (char)-11
+
+    if((StdOut) && (StdOut != INVALID_HANDLE_VALUE))
+    {
+        GetConsoleScreenBufferInfo(StdOut, &ConsoleScreenBufferInfo);
+        WORD OldColorAttribs = ConsoleScreenBufferInfo.wAttributes;
+        WORD CurrentBG = EXTRACT_BG(OldColorAttribs);
+        WORD ColorAttributesBG = EXTRACT_BG(ColorAttributes);
+        if(ColorAttributesBG)
+        {
+            CurrentBG = ColorAttributesBG;
+        }
+        SetConsoleTextAttribute(StdOut,ColorAttributes|CurrentBG);
+
+        write_string_to_console(Text);
+        SetConsoleTextAttribute(StdOut, OldColorAttribs);
+    }    
+}
+
+
+DateAndTime sl_win32_date_and_time_get()
+{
+    DateAndTime date_and_time = {};
+    SYSTEMTIME system_time = {};
+
+    GetLocalTime(&system_time);
+
+    date_and_time.month        = (Month)system_time.wMonth;
+    date_and_time.day_of_week  = (DayOfWeek)system_time.wDayOfWeek;
+    date_and_time.day          = system_time.wDay;
+    date_and_time.hour         = system_time.wHour;
+    date_and_time.minute       = system_time.wMinute;
+    date_and_time.second       = system_time.wSecond;
+    date_and_time.milliseconds = system_time.wMilliseconds;
+    return(date_and_time);
+}
+
+
+internal bool32 sl_win32_default_log_to_list_box(LogState* log_state, char* text)
+{
+    bool32 result = false;
+    
+    //NOTE: From SongHo -> "SendMessage() in worker thread may cause deadlock
+    //                              , use SendMessageTimeOut() instead"
+    int32 list_index;
+    
+    /*
+      IMPORTANT
+      NOTE:We must make sure to call Win32SetLogWindow to initialize the
+      window that will be used for logging. This can be done before or after
+      InitLog is called. As matter of convention it is usually called after.
+
+      Before any logging can take place in Win32 we must call InitLog and
+      Win32SetLogWindow at least once!
+    */
+
+    //TODO: Replace stringbuffer and append_string from gw_tool
+    if(log_state->DialogHandle)
+    {
+        string_buffer BufferToWriteOut = {};
+        append_string(&BufferToWriteOut,"[");
+
+        sl_date_string_get(sl_win32_date_and_time_get(),&BufferToWriteOut);
+        sl_time_string_get(sl_win32_date_and_time_get(),&BufferToWriteOut);
+
+        
+        append_string(&BufferToWriteOut,"] ");
+        append_string(&BufferToWriteOut,Text);
+
+#define IDC_LIST_LOG 12
+        HWND ListHandle = GetDlgItem(log_state->DialogHandle, IDC_LIST_LOG);
+        result = SendMessageTimeout(ListHandle,
+                                    LB_ADDSTRING,
+                                    0,
+                                    (LPARAM)BufferToWriteOut.Buffer,
+                                    SMTO_NORMAL | SMTO_ABORTIFHUNG,
+                                    500,(PDWORD_PTR)&ListIndex);
+        if(result)
+        {
+            SendMessageTimeout(ListHandle,
+                               LB_SETTOPINDEX,
+                               ListIndex,
+                               0,
+                               SMTO_NORMAL | SMTO_ABORTIFHUNG,
+                               500, 0);
+        }
+    }    
+    return(result);
+}
+
+
+
+internal bool32
+sl_win32_default_log_to_file(LogState* log_state, char* text)
+{
+    bool32 result = false;
+
+    //TODO: Replace string_buffer and append_string from gw_tool
+    string_buffer BufferToWriteOut = {};
+    append_string(&BufferToWriteOut,"[");
+
+    
+    sl_date_string_get(sl_win32_date_and_time_get(),&BufferToWriteOut);
+    sl_time_string_get(sl_win32_date_and_time_get(),&BufferToWriteOut);
+
+    
+    append_string(&BufferToWriteOut,"] ");
+    append_string(&BufferToWriteOut,text );
+    
+    if(log_state->FileHandle)
+    {
+        DWORD bytes_written = 0;
+        //TODO: Replace StringByteSize from gw_tool
+        result = WriteFile(log_state->FileHandle,
+                           BufferToWriteOut.Buffer,
+                           StringByteSize(BufferToWriteOut.Buffer),
+                           &bytes_written, 0);
+    }
+    else
+    {
+        log_state->FileHandle = CreateFile(log_state->file_path,
+                                          GENERIC_WRITE,
+                                          FILE_SHARE_READ,
+                                          0,
+                                          CREATE_ALWAYS, //NOTE: Will always overwrite the file that was there before.
+                                          FILE_ATTRIBUTE_NORMAL, 
+                                          0);
+        if(log_state->FileHandle != INVALID_HANDLE_VALUE)
+        {
+            DWORD bytes_written = 0;
+            //TODO: Replace StringByteSize from gw_tool
+            result = WriteFile(log_state->FileHandle,
+                               BufferToWriteOut.Buffer,
+                               StringByteSize(BufferToWriteOut.Buffer),
+                               &bytes_written, 0);
+        }
+    }
+    return(result);
+}
+
+
+internal void
+sl_win32_default_log_to_console(LogState* log_state, char* text)
+{
+    switch(log_state->log_level)
+    {
+        case LogLevel_Normal : { sl_print(Text); }break;
+        case LogLevel_Warning: { sl_print_color(text, GW_CONSOLE_FOREGROUND_YELLOW|GW_CONSOLE_FOREGROUND_INTENSITY|GW_CONSOLE_BACKGROUND_RED); }break;
+        case LogLevel_Error  : { sl_print_color(text, GW_CONSOLE_FOREGROUND_MAGENTA|GW_CONSOLE_FOREGROUND_INTENSITY|GW_CONSOLE_BACKGROUND_GREY); }break;
+        case LogLevel_Fatal  : { sl_print_color(text, GW_CONSOLE_FOREGROUND_RED|GW_CONSOLE_FOREGROUND_INTENSITY|GW_CONSOLE_BACKGROUND_GREY); }break;
+        case LogLevel_Info   : { sl_print_color(text, GW_CONSOLE_FOREGROUND_GREEN|GW_CONSOLE_FOREGROUND_INTENSITY|GW_CONSOLE_BACKGROUND_BLACK); }break;
+        case LogLevel_Debug  : { sl_print_color(text,GW_CONSOLE_FOREGROUND_CYAN|GW_CONSOLE_FOREGROUND_INTENSITY|GW_CONSOLE_BACKGROUND_BLACK); }break;
+        InvalidDefaultCase;                
+    }
+    return(Result);
+}
+
+
+internal void sl_win32_default_error_message_box(char* text, char* caption = "Error!")
+{
+    MessageBox(0,text,caption,MB_OK|MB_ICONERROR);
+}
+
+
+bool32 sl_win32_log_window_set(HWND dialog)
+{
+    bool32 result = false;
+    LogState* log_state = sl_logstate_get();
+    log_state->DialogHandle = dialog;
+    if(log_state->DialogHandle)
+    {
+        result = true;
+    }
+    return(result);
+}
+
+//END Win32 Specific --------------
+
+
