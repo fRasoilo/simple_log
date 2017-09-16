@@ -231,7 +231,7 @@ void sl_time_string_get(DateAndTime date_and_time, string_buffer* StringBuffer)
 
 
 //WIN32
-#if _WIN31
+#if _WIN32
    #define sl_print_color(Text,TextColor)  Win32PrintColor(Text, TextColor)
    #define sl_print(Text)                  write_string_to_console(Text)
 
@@ -457,5 +457,170 @@ bool32 sl_win32_log_window_set(HWND dialog)
 }
 
 //END Win32 Specific --------------
+
+//Platform Independent --------------
+
+//TODO: Need to make some different versions of this function, otherwise
+//we are not able no init with only a few of the custom hooks. For example in this
+//version we cant init custom hook for log to window without also initing file and
+//console.
+
+void sl_log_init(LogMode log_mode, char* file_path = '\0',
+                 platform_custom_log_to_file*       platform_custom_log_to_file = 0,
+                 platform_custom_log_to_console*    platform_custom_log_to_console = 0,
+                 platform_custom_log_to_window*     platform_custom_log_to_window = 0,
+                 platform_custom_error_message_box* platform_custom_error_message_box = 0)
+{
+    LogState* log_state = sl_logstate_get();
+
+    //TODO: Replace Assert, from gw_tool
+    Assert(log_state);
+    log_state->initialized = true;
+    log_state->log_mode  = (LogMode)log_mode;
+    log_state->file_path = file_path;
+
+
+    //Set to defualt first and then override if we passed in any custom functions.
+#if _Win32
+    LogState->PlatformCustomLogToFile = &Win32LogToFileDEFAULT;
+    LogState->PlatformCustomLogToWindow = &Win32LogToListBoxDEFAULT;
+    LogState->PlatformCustomLogToConsole = &Win32LogToConsoleDEFAULT;
+    LogState->PlatformCustomErrorMessageBox = &Win32ErrorMessageBoxDEFAULT;        
+#else
+    //TODO: Add defaults for other OS's when needed!
+    Assert(!"No default log functions set for this OS! Crash and burn!");
+#endif // _Win32
+
+    
+    //Hook up to the custom log functions or fallback to the defaults.
+    if(platform_custom_log_to_file){
+        log_state->platform_custom_log_to_file = platform_custom_log_to_file;
+    }
+    if(platform_custom_log_to_console){
+        log_state->platform_custom_log_to_console = platform_custom_log_to_console;
+    }
+    if(platform_custom_log_to_window){
+        log_state->platform_custom_log_to_window = platform_custom_log_to_window;
+    }
+    if(platform_custom_error_message_box){
+        log_state->platform_custom_error_message_box = platform_custom_error_message_box;
+    }
+    
+    Assert(log_state->platform_custom_log_to_file);
+    Assert(log_state->platform_custom_log_to_console);
+    Assert(log_state->platform_custom_log_to_window);
+    Assert(log_state->platform_custom_error_message_box);
+}
+
+//TODO: Replace internal, from gw_tool
+internal void
+sl_log_change_level(LogLevel log_level)
+{
+    LogState* log_state = sl_logstate_get();
+    log_state->log_level = log_level;
+}
+
+internal void
+sl_log_reset_level()
+{
+    LogState* log_state = sl_logstate_get();
+    log_state->log_level = LogLevel_Normal;
+}
+
+
+internal bool32
+sl_log(char* text)
+{
+    bool32 result = false;
+   
+    //TODO: Also at the moment we are assuming the Log Window is already
+    //created and shown. If its not? Need to buffer up messages and show them when
+    //log window is presented? (To worry about in the future). For now lets just skip
+    //if there is still no window
+        
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
+    
+    if(log_state->initialized)
+    {
+        switch(log_state->log_mode)
+        {
+            case LogMode_File         :{ result = log_state->platform_custom_log_to_file(log_state,text); }break;
+            case LogMode_Dialog       : { result = log_state->platform_custom_log_to_window(log_state,text); }break;
+            case LogMode_Console      : { result = log_state->platform_custom_log_to_console(log_state,text); }break;
+                
+            case LogMode_FileAndDialog:
+            {
+                result = log_state->platform_custom_log_to_file(log_state,text);
+                result &= log_state->platform_custom_log_to_window(log_state,text);                
+            }break;
+            
+            case LogMode_FileAndConsole:
+            {
+                result  = log_state->platform_custom_log_to_file(log_state,text);
+                result &= log_state->platform_custom_log_to_console(log_state,text);                
+            }break;
+
+            case LogMode_DialogAndConsole:
+            {
+                result = log_state->platform_custom_log_to_window(log_state,text);
+                result &= log_state->platform_custom_log_to_console(log_state,text);                
+            }break;
+
+            case LogMode_All:
+            {
+                result = log_state->platform_custom_log_to_file(log_state,text);
+                result &= log_state->platform_custom_log_to_window(log_state,text);
+                result &= log_state->platform_custom_log_to_console(log_state,text);                
+            }break;
+
+            InvalidDefaultCase;
+        }
+    }
+    else
+    {
+        Assert(!"LogState is not initialized");
+    }
+    return(result);
+}
+
+
+/*
+All The 'F' variants go here
+ */
+
+
+
+internal void
+sl_error_message_box(char* text, char* caption = "Error!")
+{
+    //TODO: Should we log inside here?
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
+    if(log_state->initialized)
+    {
+        log_state->platform_custom_error_message_box(text, caption);
+    }
+}
+
+
+internal void
+sl_error_message_box_fatal(char* text, char* caption = "FATAL ERROR!")
+{
+    //TODO: Should we log inside here?
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
+    if(log_state->initialized)
+    {
+        log_state->platform_custom_error_message_box(text, caption);
+    }
+    //TODO: Replace with debug break!
+    Assert(!"FATAL ERROR");
+}
+
+
+
+//END Platform Independent --------------
+
 
 
