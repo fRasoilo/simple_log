@@ -2,18 +2,19 @@
 /*
   -Changes from internal lib to simple_log.h
 
-    ->
+  ->
 
- */
+*/
   
 //TODO:
-// - Add option to change colors for the different logging functions.
-// - Add option to add file, line, function info to logs.
-// - Differentiate between internal functions and  user facing api functions.
-//
-//
+// - []Actually make the define SIMPLE_LOG_IMPLEMENTATION do something.
+// - []Add option to change colors for the different logging functions.
+// - []Add option to add file, line, function info to logs.
+// - []Differentiate between internal functions and  user facing api functions.
+// - [x]Option to overrride or just write a new log file.
 
 #pragma once
+
 
 //Simple Log --------------
 
@@ -32,30 +33,30 @@
 // API --------------
 
 /*
-void sl_log_init(LogMode log_mode, char* file_path,
-                 platform_custom_log_to_file*       platform_custom_log_to_file,
-                 platform_custom_log_to_console*    platform_custom_log_to_console = 0,
-                 platform_custom_log_to_window*     platform_custom_log_to_window = 0,
-                 platform_custom_error_message_box* platform_custom_error_message_box = 0);
+  void sl_log_init(LogMode log_mode, char* file_path,
+  platform_custom_log_to_file*       platform_custom_log_to_file,
+  platform_custom_log_to_console*    platform_custom_log_to_console = 0,
+  platform_custom_log_to_window*     platform_custom_log_to_window = 0,
+  platform_custom_error_message_box* platform_custom_error_message_box = 0);
 
-sl_log_window_set(Handle)  Is a macro that is defined depending on the current platform:
-sl_win32_log_window_set(HWND Handle) 
+  sl_log_window_set(Handle)  Is a macro that is defined depending on the current platform:
+  sl_win32_log_window_set(HWND Handle) 
 
                  
-bool32 sl_log(char* text);
-bool32 sl_logf(char* fmt, ...);
-bool32 sl_log_error(char* text);
-bool32 sl_log_errorf(char* fmt, ...);
-bool32 sl_log_warning(char* text);
-bool32 sl_log_warningf(char* fmt, ...);
-bool32 sl_log_info(char* text);
-bool32 sl_log_infof(char* fmt, ...);
-bool32 sl_log_debug(char* text);
-bool32 sl_log_debugf(char* fmt, ...);
-void   sl_log_fatal(char* text);
-void   sl_log_fatalf(char* fmt, ...);
-void   sl_error_message_box(char* text, char* caption = "Error!");
-void   sl_error_message_box_fatal(char* text, char* caption = "FATAL ERROR!");
+  bool32 sl_log(char* text);
+  bool32 sl_logf(char* fmt, ...);
+  bool32 sl_log_error(char* text);
+  bool32 sl_log_errorf(char* fmt, ...);
+  bool32 sl_log_warning(char* text);
+  bool32 sl_log_warningf(char* fmt, ...);
+  bool32 sl_log_info(char* text);
+  bool32 sl_log_infof(char* fmt, ...);
+  bool32 sl_log_debug(char* text);
+  bool32 sl_log_debugf(char* fmt, ...);
+  void   sl_log_fatal(char* text);
+  void   sl_log_fatalf(char* fmt, ...);
+  void   sl_error_message_box(char* text, char* caption = "Error!");
+  void   sl_error_message_box_fatal(char* text, char* caption = "FATAL ERROR!");
 
 
 */
@@ -170,7 +171,9 @@ enum LogLevel
 // [INTERNAL] Forward Declare
 
 struct LogState;
-internal bool32 sl_buffer_append_string(LogBuffer* log_buffer, char* string);
+internal void sl_buffer_append_string(LogBuffer* log_buffer, char* string);
+internal void sl_buffer_append_newline(LogBuffer* log_buffer);
+
 inline  int32 sl_string_length(char* string);
 inline int32 sl_string_size(char* string);
 
@@ -186,7 +189,6 @@ typedef PLATFORM_CUSTOM_LOG_TO_CONSOLE(platform_custom_log_to_console);
 #define PLATFORM_CUSTOM_ERROR_MESSAGE_BOX(name) void name(char* text, char* caption)
 typedef PLATFORM_CUSTOM_ERROR_MESSAGE_BOX(platform_custom_error_message_box);
 
-
 struct LogState
 {
     bool32   initialized;
@@ -194,14 +196,17 @@ struct LogState
     LogLevel log_level;
     char*    file_path;
 
-    //NOTE(filipe): Hooks to the functions that will do the different kinds of
-    //logging. Only if we want to add custom stuff at runtime or compile time.
-    
+    //NOTE: Hooks to the functions that will do the different kinds of
+    //logging. Only if we want to add custom stuff at runtime or compile time.    
     platform_custom_log_to_file*    log_to_file_func;
     platform_custom_log_to_window*  log_to_window_func;
     platform_custom_log_to_console* log_to_console_func;
     //NOTE(filipe): Hooks to the MessageBox Functions
     platform_custom_error_message_box* error_message_box_func;
+
+    //Options struct
+    bool32 auto_newlines = true;
+    bool32 override_log_file = false;
     
     //NOTE(filipe): Win32 Specific  
     HANDLE FileHandle;
@@ -226,7 +231,7 @@ LogState* sl_logstate_get(void)
 // Date and Time --------------
 
 //TODO: More formating options for date
-void sl_date_string_get(DateAndTime date_and_time,LogBuffer* buffer)
+void sl_date_string_get(DateAndTime date_and_time,LogBuffer* buffer, char* separator = " " /*space*/)
 {
     
     /*
@@ -236,18 +241,18 @@ void sl_date_string_get(DateAndTime date_and_time,LogBuffer* buffer)
     char* month;
     switch(date_and_time.month)
     {
-        case Month_January  :{month = "January ";}break;
-        case Month_February :{month = "February ";}break;
-        case Month_March    :{month = "March ";}break;
-        case Month_April    :{month = "April ";}break;
-        case Month_May      :{month = "May ";}break;
-        case Month_June     :{month = "June ";}break;
-        case Month_July     :{month = "July ";}break;
-        case Month_August   :{month = "August ";}break;
-        case Month_September:{month = "September ";}break;
-        case Month_October  :{month = "October ";}break;
-        case Month_November :{month = "November ";}break;
-        case Month_December :{month = "December ";}break;
+        case Month_January  :{month = "January";}break;
+        case Month_February :{month = "February";}break;
+        case Month_March    :{month = "March";}break;
+        case Month_April    :{month = "April";}break;
+        case Month_May      :{month = "May";}break;
+        case Month_June     :{month = "June";}break;
+        case Month_July     :{month = "July";}break;
+        case Month_August   :{month = "August";}break;
+        case Month_September:{month = "September";}break;
+        case Month_October  :{month = "October";}break;
+        case Month_November :{month = "November";}break;
+        case Month_December :{month = "December";}break;
 
             InvalidDefaultCase;
     }
@@ -260,31 +265,34 @@ void sl_date_string_get(DateAndTime date_and_time,LogBuffer* buffer)
     char* day_post_fix;
     switch(date_and_time.day)
     {
-        case 1 :{day_post_fix = "st "; }break;
-        case 21:{day_post_fix = "st "; }break;
-        case 31:{day_post_fix = "st "; }break;
+        case 1 :{day_post_fix = "st"; }break;
+        case 21:{day_post_fix = "st"; }break;
+        case 31:{day_post_fix = "st"; }break;
 
-        case 2 :{day_post_fix = "nd "; }break;
-        case 22:{day_post_fix = "nd "; }break;
+        case 2 :{day_post_fix = "nd"; }break;
+        case 22:{day_post_fix = "nd"; }break;
         
-        case 3 :{day_post_fix = "rd "; }break;
-        case 23:{day_post_fix = "rd "; }break;
+        case 3 :{day_post_fix = "rd"; }break;
+        case 23:{day_post_fix = "rd"; }break;
             
-        default:{day_post_fix = "th ";}
+        default:{day_post_fix = "th";}
     }
 
     sl_buffer_append_string(buffer, day);
     sl_buffer_append_string(buffer, day_post_fix);
-    sl_buffer_append_string(buffer, month);        
+    sl_buffer_append_string(buffer, separator);
+    sl_buffer_append_string(buffer, month);
+    sl_buffer_append_string(buffer, separator);
+    
     
 }
 
-void sl_time_string_get(DateAndTime date_and_time, LogBuffer* buffer)
+void sl_time_string_get(DateAndTime date_and_time, LogBuffer* buffer, char* separator = ":")
 {
     
     /*
       Default format for time is  - HH:MM:SS
-                                  - 10:05:30  -> 10 AM, 5 min, 30 sec
+      - 10:05:30  -> 10 AM, 5 min, 30 sec
     */
     
     char hour[2]; //0 - 23
@@ -300,9 +308,9 @@ void sl_time_string_get(DateAndTime date_and_time, LogBuffer* buffer)
     //IntToStr(date_and_time.second,  second);
 
     sl_buffer_append_string(buffer,hour);
-    sl_buffer_append_string(buffer, ":");
+    sl_buffer_append_string(buffer, separator);
     sl_buffer_append_string(buffer, minute);
-    sl_buffer_append_string(buffer, ":");
+    sl_buffer_append_string(buffer, separator);
     sl_buffer_append_string(buffer, second);
     
 }
@@ -314,8 +322,8 @@ void sl_time_string_get(DateAndTime date_and_time, LogBuffer* buffer)
 
 //WIN32
 #if _WIN32
-   #define sl_print_color(Text,TextColor)  sl_win32_print_color(Text, TextColor)
-   #define sl_print(Text)                  sl_win32_string_write_to_console(Text)
+#define sl_print_color(Text,TextColor)  sl_win32_print_color(Text, TextColor)
+#define sl_print(Text)                  sl_win32_string_write_to_console(Text)
 
 #define SL_CONSOLE_FOREGROUND_BLACK     0x0000
 #define SL_CONSOLE_FOREGROUND_BLUE      0x0001
@@ -341,7 +349,7 @@ void sl_time_string_get(DateAndTime date_and_time, LogBuffer* buffer)
 #define EXTRACT_FG(Value) (Value & 0x0F)
 
 #else
-   #error No other OS defined!
+#error No other OS defined!
 #endif //END WIN32
 //TODO: Other OS
 
@@ -420,37 +428,38 @@ internal bool32 sl_win32_default_log_to_list_box(LogState* log_state, char* text
       Win32SetLogWindow at least once!
     */
 
-    //TODO: Replace stringbuffer and append_string from gw_tool
-    if(log_state->DialogHandle)
-    {
-        LogBuffer buffer_to_write_out = {};
-        sl_buffer_append_string(&buffer_to_write_out,"[");
+    /*
+      if(log_state->DialogHandle)
+      {
+      LogBuffer buffer_to_write_out = {};
+      sl_buffer_append_string(&buffer_to_write_out,"[");
 
-        sl_date_string_get(sl_win32_date_and_time_get(),&buffer_to_write_out);
-        sl_time_string_get(sl_win32_date_and_time_get(),&buffer_to_write_out);
+      sl_date_string_get(sl_win32_date_and_time_get(),&buffer_to_write_out);
+      sl_time_string_get(sl_win32_date_and_time_get(),&buffer_to_write_out);
 
         
-        sl_buffer_append_string(&buffer_to_write_out,"] ");
-        sl_buffer_append_string(&buffer_to_write_out,text);
+      sl_buffer_append_string(&buffer_to_write_out,"] ");
+      sl_buffer_append_string(&buffer_to_write_out,text);
 
-#define IDC_LIST_LOG 12
-        HWND ListHandle = GetDlgItem(log_state->DialogHandle, IDC_LIST_LOG);
-        result = SendMessageTimeout(ListHandle,
-                                    LB_ADDSTRING,
-                                    0,
-                                    (LPARAM)buffer_to_write_out.buffer,
-                                    SMTO_NORMAL | SMTO_ABORTIFHUNG,
-                                    500,(PDWORD_PTR)&list_index);
-        if(result)
-        {
-            SendMessageTimeout(ListHandle,
-                               LB_SETTOPINDEX,
-                               list_index,
-                               0,
-                               SMTO_NORMAL | SMTO_ABORTIFHUNG,
-                               500, 0);
-        }
-    }    
+      #define IDC_LIST_LOG 12
+      HWND ListHandle = GetDlgItem(log_state->DialogHandle, IDC_LIST_LOG);
+      result = SendMessageTimeout(ListHandle,
+      LB_ADDSTRING,
+      0,
+      (LPARAM)buffer_to_write_out.buffer,
+      SMTO_NORMAL | SMTO_ABORTIFHUNG,
+      500,(PDWORD_PTR)&list_index);
+      if(result)
+      {
+      SendMessageTimeout(ListHandle,
+      LB_SETTOPINDEX,
+      list_index,
+      0,
+      SMTO_NORMAL | SMTO_ABORTIFHUNG,
+      500, 0);
+      }
+      }
+    */
     return(result);
 }
 
@@ -469,11 +478,15 @@ sl_win32_default_log_to_file(LogState* log_state, char* text)
     
     sl_buffer_append_string(&buffer_to_write_out,"] ");
     sl_buffer_append_string(&buffer_to_write_out,text );
+
+    
+    if(log_state->auto_newlines){
+        sl_buffer_append_newline(&buffer_to_write_out);
+    }
     
     if(log_state->FileHandle)
     {
         DWORD bytes_written = 0;
-        //TODO: Replace StringByteSize from gw_tool
         result = WriteFile(log_state->FileHandle,
                            buffer_to_write_out.buffer,
                            sl_string_size(buffer_to_write_out.buffer),
@@ -481,7 +494,16 @@ sl_win32_default_log_to_file(LogState* log_state, char* text)
     }
     else
     {
-        log_state->FileHandle = CreateFile(log_state->file_path,
+        char* file_path = log_state->file_path;
+        if(!log_state->override_log_file){
+            LogBuffer file_path_buffer = {};
+            sl_date_string_get(sl_win32_date_and_time_get(),&file_path_buffer, "_");
+            sl_time_string_get(sl_win32_date_and_time_get(),&file_path_buffer, "_");
+            sl_buffer_append_string(&file_path_buffer,"_");
+            sl_buffer_append_string(&file_path_buffer,log_state->file_path);
+            file_path = file_path_buffer.buffer;
+        }
+        log_state->FileHandle = CreateFile(file_path,
                                           GENERIC_WRITE,
                                           FILE_SHARE_READ,
                                           0,
@@ -491,7 +513,6 @@ sl_win32_default_log_to_file(LogState* log_state, char* text)
         if(log_state->FileHandle != INVALID_HANDLE_VALUE)
         {
             DWORD bytes_written = 0;
-            //TODO: Replace StringByteSize from gw_tool
             result = WriteFile(log_state->FileHandle,
                                buffer_to_write_out.buffer,
                                sl_string_size(buffer_to_write_out.buffer),
@@ -502,24 +523,32 @@ sl_win32_default_log_to_file(LogState* log_state, char* text)
 }
 
 
-internal void
+internal bool32
 sl_win32_default_log_to_console(LogState* log_state, char* text)
 {
+    LogBuffer buffer_to_write_out = {};
+    sl_buffer_append_string(&buffer_to_write_out,text );
+    if(log_state->auto_newlines){
+        sl_buffer_append_newline(&buffer_to_write_out);
+    }
+
     switch(log_state->log_level)
     {
-        case LogLevel_Normal : { sl_print(text); }break;
-        case LogLevel_Warning: { sl_print_color(text, SL_CONSOLE_FOREGROUND_YELLOW|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_RED); }break;
-        case LogLevel_Error  : { sl_print_color(text, SL_CONSOLE_FOREGROUND_MAGENTA|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_GREY); }break;
-        case LogLevel_Fatal  : { sl_print_color(text, SL_CONSOLE_FOREGROUND_RED|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_GREY); }break;
-        case LogLevel_Info   : { sl_print_color(text, SL_CONSOLE_FOREGROUND_GREEN|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_BLACK); }break;
-        case LogLevel_Debug  : { sl_print_color(text,SL_CONSOLE_FOREGROUND_CYAN|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_BLACK); }break;
+        case LogLevel_Normal : { sl_print(buffer_to_write_out.buffer); }break;
+        case LogLevel_Warning: { sl_print_color(buffer_to_write_out.buffer, SL_CONSOLE_FOREGROUND_YELLOW|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_RED); }break;
+        case LogLevel_Error  : { sl_print_color(buffer_to_write_out.buffer, SL_CONSOLE_FOREGROUND_MAGENTA|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_GREY); }break;
+        case LogLevel_Fatal  : { sl_print_color(buffer_to_write_out.buffer, SL_CONSOLE_FOREGROUND_RED|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_GREY); }break;
+        case LogLevel_Info   : { sl_print_color(buffer_to_write_out.buffer, SL_CONSOLE_FOREGROUND_GREEN|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_BLACK); }break;
+        case LogLevel_Debug  : { sl_print_color(buffer_to_write_out.buffer, SL_CONSOLE_FOREGROUND_CYAN|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_BLACK); }break;
         InvalidDefaultCase;                
     }
+    return(true);
 }
 
 
 internal void sl_win32_default_error_message_box(char* text, char* caption = "Error!")
 {
+    //Needs User32.lib
     MessageBox(0,text,caption,MB_OK|MB_ICONERROR);
 }
 
@@ -560,11 +589,11 @@ void sl_log_init(LogMode log_mode, char* file_path = '\0',
 
 
     //Set to defualt first and then override if we passed in any custom functions.
-#if _Win32
-    LogState->PlatformCustomLogToFile = &Win32LogToFileDEFAULT;
-    LogState->PlatformCustomLogToWindow = &Win32LogToListBoxDEFAULT;
-    LogState->PlatformCustomLogToConsole = &Win32LogToConsoleDEFAULT;
-    LogState->PlatformCustomErrorMessageBox = &Win32ErrorMessageBoxDEFAULT;        
+#if _WIN32
+    log_state->log_to_file_func = &sl_win32_default_log_to_file;
+    log_state->log_to_window_func = &sl_win32_default_log_to_list_box;
+    log_state->log_to_console_func = &sl_win32_default_log_to_console;
+    log_state->error_message_box_func = &sl_win32_default_error_message_box;        
 #else
     //TODO: Add defaults for other OS's when needed!
     Assert(!"No default log functions set for this OS! Crash and burn!");
@@ -950,8 +979,30 @@ sl_error_message_box_fatal(char* text, char* caption = "FATAL ERROR!")
 //TODO: Other OS
 
 
-
 //END Platform Independent --------------
+
+// LogState Options --------------
+
+
+void sl_logstate_auto_newlines_set(bool32 value)
+{
+    LogState* log_state = sl_logstate_get();
+    if(log_state){
+        log_state->auto_newlines = value;
+    }
+}
+
+
+void sl_logstate_override_log_file_set(bool32 value)
+{
+    LogState* log_state = sl_logstate_get();
+    if(log_state){
+        log_state->override_log_file = value;
+    }
+}
+
+
+//END LogState Options --------------
 
 
 
@@ -986,14 +1037,12 @@ sl_string_size(char* string)
 }
 
 
-internal bool32
+internal void
 sl_buffer_append_string(LogBuffer* log_buffer, char* string)
 {
     uint32 string_size = sl_string_size(string);
-    //TODO(filipe): In the future, should grow the buffer...
+    //TODO: In the future, should grow the buffer...
     Assert((string_size + log_buffer->used) < LOG_BUFFER_SIZE); 
-    bool32 result = false;
-
     char* str_ptr = string;
     for(int32 index = log_buffer->used ;*str_ptr; ++index)
     {
@@ -1001,13 +1050,26 @@ sl_buffer_append_string(LogBuffer* log_buffer, char* string)
     }
     log_buffer->used += string_size;
 
-    log_buffer->buffer[log_buffer->used] = '\0';
-    
-    return(result);
+    log_buffer->buffer[log_buffer->used] = '\0';    
 }
+
+
+internal void
+sl_buffer_append_newline(LogBuffer* log_buffer)
+{
+    uint32 string_size = sizeof('\n');                             
+    Assert((string_size + log_buffer->used) < LOG_BUFFER_SIZE); 
+    log_buffer->buffer[log_buffer->used] = '\n';
+    log_buffer->used += string_size;
+    log_buffer->buffer[log_buffer->used] = '\0';    
+}
+
+
+
 //END Buffer Utilites
 
 
+//TODO: Move to WIn32 section.
 internal bool32 sl_win32_string_write_to_console(char* string)
 {
     bool32 result = false;
