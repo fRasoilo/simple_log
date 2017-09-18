@@ -7,6 +7,7 @@
 */
   
 //TODO:
+// - [x]Test all f variants.
 // - []Actually make the define SIMPLE_LOG_IMPLEMENTATION do something.
 // - []Add option to change colors for the different logging functions.
 // - []Add option to add file, line, function info to logs.
@@ -692,16 +693,17 @@ sl_log(char* text)
     return(result);
 }
 
-
 bool32
 sl_logf(char* fmt, ...)
 {
-
-    //TODO: Do the va_list stuff
     
     LogBuffer log_buffer = {};
-    int32 result = sprintf(log_buffer.buffer, fmt);
 
+    va_list args;
+    va_start(args, fmt);    
+    int32 result = vsprintf(log_buffer.buffer, fmt,args);
+    va_end(args);
+    
     if(result < 0){
         Assert(!"Something bad happened");
     }
@@ -788,11 +790,13 @@ sl_log_error(char* text)
 bool32
 sl_log_errorf(char* fmt, ...)
 {
-    //TODO: Do the va_list stuff
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[ERROR]: " );
-
-    int32 result = sprintf(log_buffer.buffer, fmt);
+    
+    va_list args;
+    va_start(args, fmt);    
+    int32 result = vsprintf(log_buffer.buffer, fmt,args);
+    va_end(args);
 
     if(result < 0){
         Assert(!"Something bad happened");
@@ -823,11 +827,14 @@ bool32
 sl_log_warningf(char* fmt, ...)
 {
 
-    //TODO: Do the va_list stuff
     LogBuffer log_buffer = {};
-
     sl_buffer_append_string(&log_buffer,"[WARNING]: ");
-    int32 result = sprintf(log_buffer.buffer, fmt);
+
+    
+    va_list args;
+    va_start(args, fmt);    
+    int32 result = vsprintf(log_buffer.buffer, fmt,args);
+    va_end(args);
 
     if(result < 0){
         Assert(!"Something bad happened");
@@ -856,13 +863,15 @@ sl_log_info(char* text)
 bool32
 sl_log_infof(char* fmt, ...)
 {
-    //TODO: Do the va_list stuff.
 
     LogBuffer log_buffer = {};
-
     sl_buffer_append_string(&log_buffer,"[INFO]: ");
-    int32 result = sprintf(log_buffer.buffer, fmt);
-
+    
+    va_list args;
+    va_start(args, fmt);    
+    int32 result = vsprintf(log_buffer.buffer, fmt,args);
+    va_end(args);
+    
     if(result < 0){
         Assert(!"Something bad happened");
     }
@@ -890,12 +899,14 @@ sl_log_debug(char* text)
 bool32
 sl_log_debugf(char* fmt, ...)
 {
-    //TODO: Do the va_list stuff
-
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[DEBUG]: " );
-    int32 result = sprintf(log_buffer.buffer, fmt);
-
+    
+    va_list args;
+    va_start(args, fmt);    
+    int32 result = vsprintf(log_buffer.buffer, fmt,args);
+    va_end(args);
+    
     if(result < 0){
         Assert(!"Something bad happened");
     }
@@ -924,14 +935,15 @@ sl_log_fatal(char* text)
 
 void
 sl_log_fatalf(char* fmt, ...)
-{
-
-    //TODO: Do the va_list stuff
-    
+{    
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[***FATAL ERROR***]: ");
-    int32 result = sprintf(log_buffer.buffer, fmt);
-
+    
+    va_list args;
+    va_start(args, fmt);    
+    int32 result = vsprintf(log_buffer.buffer, fmt,args);
+    va_end(args);
+    
     if(result < 0){
         Assert(!"Something bad happened");
     }
