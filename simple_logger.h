@@ -514,14 +514,14 @@ void sl_log_init(LogMode log_mode, char* file_path = '\0',
 
 //TODO: Replace internal, from gw_tool
 internal void
-sl_log_change_level(LogLevel log_level)
+sl_log_level_change(LogLevel log_level)
 {
     LogState* log_state = sl_logstate_get();
     log_state->log_level = log_level;
 }
 
 internal void
-sl_log_reset_level()
+sl_log_level_reset()
 {
     LogState* log_state = sl_logstate_get();
     log_state->log_level = LogLevel_Normal;
@@ -585,10 +585,264 @@ sl_log(char* text)
 }
 
 
+internal bool32
+sl_logf(char* fmt, ...)
+{
+
+    //TODO: Replace this with the std lib function
+
+    //IMPORTANT NOTE(filipe): Win32 Specific?
+
+	Assert(ASM_LOADED);
+    x64SpillRegisters_R();    
+    void *OptionalArgument = (char*)(&Fmt) + 8;
+    //
+    
+    string_buffer Buffer ={};
+    print_to_buffer_(&Buffer, Fmt, OptionalArgument);
+    char* Text = Buffer.Buffer;
+    
+    bool32 Result = false;
+   
+    //TODO: Also at the moment we are assuming the Log Window is already
+    //created and shown. If its not? Need to buffer up messages and show them when
+    //log window is presented? x(To worry about in the future). For now lets just skip
+    //if there is still no window
+        
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
+    
+    if(log_state->initialized)
+    {
+        switch(log_state->log_mode)
+        {
+            case LogMode_File:
+            {
+                Result = log_state->PlatformCustomLogToFile(log_state,Text);
+            }break;
+
+            case LogMode_dialog:
+            {
+                Result = log_state->PlatformCustomLogToWindow(log_state,Text);
+            }break;
+            
+            case LogMode_console:
+            {
+                Result = log_state->PlatformCustomLogToConsole(log_state,Text);
+            }break;
+
+            case LogMode_file_and_dialog:
+            {
+                Result = log_state->PlatformCustomLogToFile(log_state,Text);
+                Result &= log_state->PlatformCustomLogToWindow(log_state,Text);                
+            }break;
+
+            case LogMode_file_and_console:
+            {
+                Result  = log_state->PlatformCustomLogToFile(log_state,Text);
+                Result &= log_state->PlatformCustomLogToConsole(log_state,Text);                
+            }break;
+
+            case LogMode_dialog_and_console:
+            {
+                Result = log_state->PlatformCustomLogToWindow(log_state,Text);
+                Result &= log_state->PlatformCustomLogToConsole(log_state,Text);                
+            }break;
+
+            case LogMode_all:
+            {
+                Result = log_state->PlatformCustomLogToFile(log_state,Text);
+                Result &= log_state->PlatformCustomLogToWindow(log_state,Text);
+                Result &= log_state->PlatformCustomLogToConsole(log_state,Text);                
+            }break;
+
+            InvalidDefaultCase;
+        }
+    }
+    else
+    {
+        Assert(!"LogState is not initialized");
+    }
+    return(Result);
+}
+
+
+internal bool32
+sl_log_error(char* text)
+{
+    //TODO: Replace string_buffer from gw_tool
+    string_buffer BufferToWriteOut = {};
+    append_string(&BufferToWriteOut,"[ERROR]: " );
+    append_string(&BufferToWriteOut,Text );
+
+    sl_log_level_change(LogLevel_Error);
+    bool32 result = sl_log(BufferToWriteOut.Buffer);
+    sl_log_level_reset();
+    return(result);    
+}
+
 /*
 All The 'F' variants go here
  */
 
+
+internal bool32
+sl_log_errorf(char* fmt, ...)
+{
+ 
+    //IMPORTANT NOTE(filipe): Win32 Specific?
+    Assert(ASM_LOADED);
+    x64SpillRegisters_R();    
+    void *OptionalArgument = (char*)(&Fmt) + 8;
+    //
+
+    string_buffer BufferToWriteOut = {};
+    append_string(&BufferToWriteOut,"[ERROR]: " );
+    print_to_buffer_(&BufferToWriteOut, Fmt, OptionalArgument);
+
+    sl_log_level_change(LogLevel_Error);
+    bool32 result = sl_log(BufferToWriteOut.Buffer);
+    sl_log_level_reset();
+    return(result);    
+}
+
+
+internal bool32
+sl_log_warning(char* text)
+{
+    string_buffer BufferToWriteOut = {};
+    append_string(&BufferToWriteOut,"[WARNING]: ");
+    append_string(&BufferToWriteOut,Text);
+
+    sl_log_level_change(LogLevel_Warning);
+    bool32 result = sl_log(BufferToWriteOut.Buffer);
+    sl_log_level_reset();
+    return(result);    
+}
+
+
+internal bool32
+sl_log_warningf(char* fmt, ...)
+{
+    //IMPORTANT NOTE(filipe): Win32 Specific?
+    Assert(ASM_LOADED);
+    x64SpillRegisters_R();    
+    void *OptionalArgument = (char*)(&Fmt) + 8;
+    //
+
+    string_buffer BufferToWriteOut = {};
+    append_string(&BufferToWriteOut,"[WARNING]: ");
+    print_to_buffer_(&BufferToWriteOut, Fmt, OptionalArgument);
+
+    sl_log_level_change(LogLevel_Warning);
+    bool32 result = Log(BufferToWriteOut.Buffer);
+    ResetLogLevel();
+    return(Result);    
+}
+
+
+internal bool32
+sl_log_info(char* text)
+{
+    string_buffer BufferToWriteOut = {};
+    append_string(&BufferToWriteOut,"[INFO]: ");
+    append_string(&BufferToWriteOut,Text);
+    
+    sl_log_level_change(LogLevel_Info);
+    bool32 result = sl_log(BufferToWriteOut.Buffer);
+    sl_log_level_reset();
+    return(result);    
+}
+
+internal bool32
+sl_log_infof(char* fmt, ...)
+{
+    //IMPORTANT NOTE(filipe): Win32 Specific?
+    Assert(ASM_LOADED);
+    x64SpillRegisters_R();    
+    void *OptionalArgument = (char*)(&Fmt) + 8;
+    //
+
+    string_buffer BufferToWriteOut = {};
+    append_string(&BufferToWriteOut,"[INFO]: ");
+    print_to_buffer_(&BufferToWriteOut, Fmt, OptionalArgument);
+
+    sl_log_level_change(LogLevel_Info);
+    bool32 result = sl_log(BufferToWriteOut.Buffer);
+    sl_log_level_reset();
+    return(result);    
+}
+
+
+internal bool32
+sl_log_debug(char* text)
+{
+    string_buffer BufferToWriteOut = {};
+    append_string(&BufferToWriteOut,"[DEBUG]: " );
+    append_string(&BufferToWriteOut,Text);
+
+    sl_log_level_change(LogLevel_Debug);
+    bool32 result = sl_log(BufferToWriteOut.Buffer);
+    sl_log_level_reset();
+    return(result);    
+}
+
+internal bool32
+sl_log_debugf(char* fmt, ...)
+{
+    //IMPORTANT NOTE(filipe): Win32 Specific?
+    Assert(ASM_LOADED);
+    x64SpillRegisters_R();    
+    void *OptionalArgument = (char*)(&Fmt) + 8;
+    //
+
+    string_buffer BufferToWriteOut = {};
+    append_string(&BufferToWriteOut,"[DEBUG]: " );
+    print_to_buffer_(&BufferToWriteOut, Fmt, OptionalArgument);
+
+    sl_log_level_change(LogLevel_Debug);
+    bool32 Result = sl_log(BufferToWriteOut.Buffer);
+    sl_log_level_reset();
+    return(result);    
+}
+
+
+internal void
+sl_log_fatal(char* text)
+{
+    //TODO(filipe): Fatal Error should give information about file, line, function
+    string_buffer BufferToWriteOut = {};
+    append_string(&BufferToWriteOut,"[***FATAL ERROR***]: ");
+    append_string(&BufferToWriteOut,Text);
+
+    sl_log_level_change(LogLevel_Fatal);
+    sl_log(BufferToWriteOut.Buffer);
+    sl_log_level_reset();
+    
+    //NOTE: Crash on purpose!
+    Assert(!"FATAL ERROR");
+}
+
+internal void
+sl_log_fatalf(char* fmt, ...)
+{
+    //IMPORTANT NOTE(filipe): Win32 Specific?
+    Assert(ASM_LOADED);
+    x64SpillRegisters_R();    
+    void *OptionalArgument = (char*)(&Fmt) + 8;
+    //
+
+    //TODO(filipe): Fatal Error should give information about file, line, function
+    string_buffer BufferToWriteOut = {};
+    append_string(&BufferToWriteOut,"[***FATAL ERROR***]: ");
+    print_to_buffer_(&BufferToWriteOut, Fmt, OptionalArgument);
+
+    sl_log_level_change(LogLevel_Fatal);
+    sl_log(BufferToWriteOut.Buffer);
+    sl_log_level_reset();
+    //NOTE: Crash on purpose!
+    Assert(!"FATAL ERROR");
+}
 
 
 internal void
