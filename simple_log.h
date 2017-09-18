@@ -10,7 +10,9 @@
 // - [x]Test all f variants.
 // - []Actually make the define SIMPLE_LOG_IMPLEMENTATION do something.
 // - []Add option to change colors for the different logging functions.
+// - []Make sure to update the buffer used everytime we use vsprintf (going to wrap vsprintf to avoid bug due to forgetting to update)
 // - []Add option to add file, line, function info to logs.
+
 // - []Differentiate between internal functions and  user facing api functions.
 // - [x]Option to overrride or just write a new log file.
 
@@ -178,6 +180,9 @@ internal void sl_buffer_append_newline(LogBuffer* log_buffer);
 inline  int32 sl_string_length(char* string);
 inline int32 sl_string_size(char* string);
 
+internal int32 sl_internal_print_to_buffer(LogBuffer* log_buffer, char* fmt,va_list args);
+
+
 #define PLATFORM_CUSTOM_LOG_TO_FILE(name) bool32 name(LogState* log_state, char* text)
 typedef PLATFORM_CUSTOM_LOG_TO_FILE(platform_custom_log_to_file);
 
@@ -206,8 +211,11 @@ struct LogState
     platform_custom_error_message_box* error_message_box_func;
 
     //Options struct
-    bool32 auto_newlines = true;
-    bool32 override_log_file = false;
+    bool32 auto_newlines           = true;
+    bool32 override_log_file       = false;
+    bool32 display_file_in_log     = false;
+    bool32 display_function_in_log = false;
+    bool32 display_line_in_log     = false;
     
     //NOTE(filipe): Win32 Specific  
     HANDLE FileHandle;
@@ -693,16 +701,39 @@ sl_log(char* text)
     return(result);
 }
 
+#define sl_logf(fmt, ...) sl_internal_logf(__FILE__,__FUNCTION__,__LINE__,fmt, __VA_ARGS__)
+
 bool32
-sl_logf(char* fmt, ...)
+sl_internal_logf(char* file, char* function, int line, char* fmt, ...)
 {
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
     
     LogBuffer log_buffer = {};
-
+    
     va_list args;
     va_start(args, fmt);    
-    int32 result = vsprintf(log_buffer.buffer, fmt,args);
+    int32 result = sl_internal_print_to_buffer(&log_buffer, fmt, args);    
     va_end(args);
+    
+    if(log_state->display_file_in_log){
+        sl_buffer_append_string(&log_buffer, " ||IN FILE|| ");
+        sl_buffer_append_string(&log_buffer, file);
+        sl_buffer_append_string(&log_buffer, " ||");
+    }
+    if(log_state->display_function_in_log){
+        sl_buffer_append_string(&log_buffer, " ||IN FUNCTION|| ");
+        sl_buffer_append_string(&log_buffer, function);
+        sl_buffer_append_string(&log_buffer, " ||");
+    }
+    if(log_state->display_line_in_log){
+        sl_buffer_append_string(&log_buffer, " ||IN LINE|| ");
+        char line_str[4]; //Support up to 9999 lines.
+        sprintf(line_str, "%d",line);
+        sl_buffer_append_string(&log_buffer, line_str);
+        sl_buffer_append_string(&log_buffer, " ||");
+    }
+
     
     if(result < 0){
         Assert(!"Something bad happened");
@@ -714,8 +745,6 @@ sl_logf(char* fmt, ...)
     //log window is presented? x(To worry about in the future). For now lets just skip
     //if there is still no window
         
-    LogState* log_state = sl_logstate_get();
-    Assert(log_state);
     
     if(log_state->initialized)
     {
@@ -1014,6 +1043,31 @@ void sl_logstate_override_log_file_set(bool32 value)
 }
 
 
+void sl_logstate_display_file_in_log_set(bool32 value)
+{
+    LogState* log_state = sl_logstate_get();
+    if(log_state){
+        log_state->display_file_in_log = value;
+    }
+}
+
+void sl_logstate_display_function_in_log_set(bool32 value)
+{
+    LogState* log_state = sl_logstate_get();
+    if(log_state){
+        log_state->display_function_in_log = value;
+    }
+}
+
+void sl_logstate_display_line_in_log_set(bool32 value)
+{
+    LogState* log_state = sl_logstate_get();
+    if(log_state){
+        log_state->display_line_in_log = value;
+    }
+}
+
+
 //END LogState Options --------------
 
 
@@ -1077,6 +1131,13 @@ sl_buffer_append_newline(LogBuffer* log_buffer)
 }
 
 
+internal int32
+sl_internal_print_to_buffer(LogBuffer* log_buffer, char* fmt,va_list args)
+{
+    int32 result = vsprintf(log_buffer->buffer, fmt,args);
+    log_buffer->used += result*sizeof( log_buffer->buffer[0]);
+    return(result);
+}
 
 //END Buffer Utilites
 
