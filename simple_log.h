@@ -10,8 +10,8 @@
 // - [x]Test all f variants.
 // - []Actually make the define SIMPLE_LOG_IMPLEMENTATION do something.
 // - []Add option to change colors for the different logging functions.
-// - []Make sure to update the buffer used everytime we use vsprintf (going to wrap vsprintf to avoid bug due to forgetting to update)
-// - []Add option to add file, line, function info to logs.
+// - [x]Make sure to update the buffer used everytime we use vsprintf (going to wrap vsprintf to avoid bug due to forgetting to update)
+// - [x]Add option to add file, line, function info to logs.
 
 // - []Differentiate between internal functions and  user facing api functions.
 // - [x]Option to overrride or just write a new log file.
@@ -645,76 +645,22 @@ sl_log_level_reset()
 }
 
 
-bool32
-sl_log(char* text)
+
+#define sl_log(text) sl_internal_log(text, __FILE__, __FUNCTION__, __LINE__)
+
+bool32 sl_internal_log(char* text, char* file, char* function, int line)
 {
     bool32 result = false;
    
     //TODO: Also at the moment we are assuming the Log Window is already
     //created and shown. If its not? Need to buffer up messages and show them when
     //log window is presented? (To worry about in the future). For now lets just skip
-    //if there is still no window
-        
+    //if there is still no window        
     LogState* log_state = sl_logstate_get();
     Assert(log_state);
-    
-    if(log_state->initialized)
-    {
-        switch(log_state->log_mode)
-        {
-            case LogMode_File         : { result = log_state->log_to_file_func(log_state,text); }break;
-            case LogMode_Dialog       : { result = log_state->log_to_window_func(log_state,text); }break;
-            case LogMode_Console      : { result = log_state->log_to_console_func(log_state,text); }break;
-                
-            case LogMode_FileAndDialog:
-            {
-                result = log_state->log_to_file_func(log_state,text);
-                result &= log_state->log_to_window_func(log_state,text);                
-            }break;
-            
-            case LogMode_FileAndConsole:
-            {
-                result  = log_state->log_to_file_func(log_state,text);
-                result &= log_state->log_to_console_func(log_state,text);                
-            }break;
 
-            case LogMode_DialogAndConsole:
-            {
-                result =  log_state->log_to_window_func(log_state,text);
-                result &= log_state->log_to_console_func(log_state,text);                
-            }break;
-
-            case LogMode_All:
-            {
-                result =  log_state->log_to_file_func(log_state,text);
-                result &= log_state->log_to_window_func(log_state,text);
-                result &= log_state->log_to_console_func(log_state,text);                
-            }break;
-
-            InvalidDefaultCase;
-        }
-    }
-    else
-    {
-        Assert(!"LogState is not initialized");
-    }
-    return(result);
-}
-
-#define sl_logf(fmt, ...) sl_internal_logf(__FILE__,__FUNCTION__,__LINE__,fmt, __VA_ARGS__)
-
-bool32
-sl_internal_logf(char* file, char* function, int line, char* fmt, ...)
-{
-    LogState* log_state = sl_logstate_get();
-    Assert(log_state);
-    
     LogBuffer log_buffer = {};
-    
-    va_list args;
-    va_start(args, fmt);    
-    int32 result = sl_internal_print_to_buffer(&log_buffer, fmt, args);    
-    va_end(args);
+    sl_buffer_append_string(&log_buffer, text);
     
     if(log_state->display_file_in_log){
         sl_buffer_append_string(&log_buffer, " ||IN FILE|| ");
@@ -735,17 +681,90 @@ sl_internal_logf(char* file, char* function, int line, char* fmt, ...)
     }
 
     
+    if(log_state->initialized)
+    {
+        switch(log_state->log_mode)
+        {
+            case LogMode_File         : { result = log_state->log_to_file_func(log_state,log_buffer.buffer); }break;
+            case LogMode_Dialog       : { result = log_state->log_to_window_func(log_state,log_buffer.buffer); }break;
+            case LogMode_Console      : { result = log_state->log_to_console_func(log_state,log_buffer.buffer); }break;
+                
+            case LogMode_FileAndDialog:
+            {
+                result = log_state->log_to_file_func(log_state,log_buffer.buffer);
+                result &= log_state->log_to_window_func(log_state,log_buffer.buffer);                
+            }break;
+            
+            case LogMode_FileAndConsole:
+            {
+                result  = log_state->log_to_file_func(log_state,log_buffer.buffer);
+                result &= log_state->log_to_console_func(log_state,log_buffer.buffer);                
+            }break;
+
+            case LogMode_DialogAndConsole:
+            {
+                result =  log_state->log_to_window_func(log_state,log_buffer.buffer);
+                result &= log_state->log_to_console_func(log_state,log_buffer.buffer);                
+            }break;
+
+            case LogMode_All:
+            {
+                result =  log_state->log_to_file_func(log_state,log_buffer.buffer);
+                result &= log_state->log_to_window_func(log_state,log_buffer.buffer);
+                result &= log_state->log_to_console_func(log_state,log_buffer.buffer);                
+            }break;
+
+            InvalidDefaultCase;
+        }
+    }
+    else
+    {
+        Assert(!"LogState is not initialized");
+    }
+    return(result);
+}
+
+#define sl_logf(fmt, ...) sl_internal_logf(__FILE__,__FUNCTION__,__LINE__,fmt, __VA_ARGS__)
+
+bool32 sl_internal_logf(char* file, char* function, int line, char* fmt, ...)
+{
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
+    
+    LogBuffer log_buffer = {};
+    
+    va_list args;
+    va_start(args, fmt);    
+    int32 result = sl_internal_print_to_buffer(&log_buffer, fmt, args);
+    
+    va_end(args);
+        
     if(result < 0){
         Assert(!"Something bad happened");
     }
-    
+
+    if(log_state->display_file_in_log){
+        sl_buffer_append_string(&log_buffer, " ||IN FILE|| ");
+        sl_buffer_append_string(&log_buffer, file);
+        sl_buffer_append_string(&log_buffer, " ||");
+    }
+    if(log_state->display_function_in_log){
+        sl_buffer_append_string(&log_buffer, " ||IN FUNCTION|| ");
+        sl_buffer_append_string(&log_buffer, function);
+        sl_buffer_append_string(&log_buffer, " ||");
+    }
+    if(log_state->display_line_in_log){
+        sl_buffer_append_string(&log_buffer, " ||IN LINE|| ");
+        char line_str[4]; //Support up to 9999 lines.
+        sprintf(line_str, "%d",line);
+        sl_buffer_append_string(&log_buffer, line_str);
+        sl_buffer_append_string(&log_buffer, " ||");
+    }
            
     //TODO: Also at the moment we are assuming the Log Window is already
     //created and shown. If its not? Need to buffer up messages and show them when
     //log window is presented? x(To worry about in the future). For now lets just skip
-    //if there is still no window
-        
-    
+    //if there is still no window    
     if(log_state->initialized)
     {
         switch(log_state->log_mode)
@@ -801,176 +820,213 @@ sl_internal_logf(char* file, char* function, int line, char* fmt, ...)
 }
 
 
-bool32
-sl_log_error(char* text)
-{
-    LogBuffer buffer_to_write_out = {};
-    
-    sl_buffer_append_string(&buffer_to_write_out,"[ERROR]: " );
-    sl_buffer_append_string(&buffer_to_write_out,text);
+#define sl_log_error(text) sl_internal_log_error(text, __FILE__, __FUNCTION__, __LINE__)
 
+bool32 sl_internal_log_error(char* text, char* file, char* function, int line)
+{
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
+
+    LogBuffer log_buffer = {};
+    
+    sl_buffer_append_string(&log_buffer,"[ERROR]: " );
+    sl_buffer_append_string(&log_buffer,text);
+    
     sl_log_level_change(LogLevel_Error);
-    bool32 result = sl_log(buffer_to_write_out.buffer);
+    bool32 result = sl_internal_log(log_buffer.buffer,file,function,line);
     sl_log_level_reset();
     return(result);    
 }
 
+#define sl_log_errorf(fmt, ...) sl_internal_log_errorf(__FILE__,__FUNCTION__,__LINE__,fmt, __VA_ARGS__)
 
-bool32
-sl_log_errorf(char* fmt, ...)
+bool32 sl_internal_log_errorf(char* file, char* function, int line, char* fmt, ...)
 {
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
+
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[ERROR]: " );
     
     va_list args;
-    va_start(args, fmt);    
-    int32 result = vsprintf(log_buffer.buffer, fmt,args);
+    va_start(args, fmt);
+    int32 result = sl_internal_print_to_buffer(&log_buffer, fmt, args);
     va_end(args);
 
     if(result < 0){
         Assert(!"Something bad happened");
     }
-
+    
     sl_log_level_change(LogLevel_Error);
-    result = sl_log(log_buffer.buffer);
+    result = sl_internal_log(log_buffer.buffer, file, function, line);
     sl_log_level_reset();
     return(result);    
 }
 
 
-bool32
-sl_log_warning(char* text)
+#define sl_log_warning(text) sl_internal_log_warning(text, __FILE__, __FUNCTION__, __LINE__)
+
+bool32 sl_internal_log_warning(char* text, char* file, char* function, int line)
 {
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
+
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[WARNING]: ");
     sl_buffer_append_string(&log_buffer,text);
 
     sl_log_level_change(LogLevel_Warning);
-    bool32 result = sl_log(log_buffer.buffer);
+    bool32 result = sl_internal_log(log_buffer.buffer, file, function, line);
     sl_log_level_reset();
     return(result);    
 }
 
 
-bool32
-sl_log_warningf(char* fmt, ...)
+#define sl_log_warningf(fmt, ...) sl_internal_log_warningf(__FILE__,__FUNCTION__,__LINE__,fmt, __VA_ARGS__)
+
+bool32 sl_internal_log_warningf(char* file, char* function, int line, char* fmt, ...)
 {
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
 
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[WARNING]: ");
-
     
     va_list args;
-    va_start(args, fmt);    
-    int32 result = vsprintf(log_buffer.buffer, fmt,args);
+    va_start(args, fmt);
+    int32 result = sl_internal_print_to_buffer(&log_buffer, fmt, args);
     va_end(args);
 
     if(result < 0){
         Assert(!"Something bad happened");
     }
 
+            
     sl_log_level_change(LogLevel_Warning);
-    result = sl_log(log_buffer.buffer);
+    result = sl_internal_log(log_buffer.buffer, file, function, line);
     sl_log_level_reset();
     return(result);    
 }
 
+#define sl_log_info(text) sl_internal_log_info(text, __FILE__, __FUNCTION__, __LINE__)
 
-bool32
-sl_log_info(char* text)
+bool32 sl_internal_log_info(char* text, char* file, char* function, int line)
 {
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
+    
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[INFO]: ");
     sl_buffer_append_string(&log_buffer,text);
     
     sl_log_level_change(LogLevel_Info);
-    bool32 result = sl_log(log_buffer.buffer);
+    bool32 result = sl_internal_log(log_buffer.buffer, file, function, line);
     sl_log_level_reset();
     return(result);    
 }
 
-bool32
-sl_log_infof(char* fmt, ...)
+
+#define sl_log_infof(fmt, ...) sl_internal_log_infof(__FILE__,__FUNCTION__,__LINE__,fmt, __VA_ARGS__)
+
+bool32 sl_internal_log_infof(char* file, char* function, int line, char* fmt, ...)
 {
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
 
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[INFO]: ");
     
     va_list args;
-    va_start(args, fmt);    
-    int32 result = vsprintf(log_buffer.buffer, fmt,args);
-    va_end(args);
-    
-    if(result < 0){
-        Assert(!"Something bad happened");
-    }
-
-    sl_log_level_change(LogLevel_Info);
-    result = sl_log(log_buffer.buffer);
-    sl_log_level_reset();
-    return(result);    
-}
-
-
-bool32
-sl_log_debug(char* text)
-{
-    LogBuffer log_buffer = {};
-    sl_buffer_append_string(&log_buffer,"[DEBUG]: " );
-    sl_buffer_append_string(&log_buffer,text);
-
-    sl_log_level_change(LogLevel_Debug);
-    bool32 result = sl_log(log_buffer.buffer);
-    sl_log_level_reset();
-    return(result);    
-}
-
-bool32
-sl_log_debugf(char* fmt, ...)
-{
-    LogBuffer log_buffer = {};
-    sl_buffer_append_string(&log_buffer,"[DEBUG]: " );
-    
-    va_list args;
-    va_start(args, fmt);    
-    int32 result = vsprintf(log_buffer.buffer, fmt,args);
+    va_start(args, fmt);
+    int32 result = sl_internal_print_to_buffer(&log_buffer, fmt, args);
     va_end(args);
     
     if(result < 0){
         Assert(!"Something bad happened");
     }
     
-    sl_log_level_change(LogLevel_Debug);
-    result = sl_log(log_buffer.buffer);
+    sl_log_level_change(LogLevel_Info);
+    result = sl_internal_log(log_buffer.buffer, file, function, line);
     sl_log_level_reset();
     return(result);    
 }
 
 
-void
-sl_log_fatal(char* text)
+#define sl_log_debug(text) sl_internal_log_debug(text, __FILE__, __FUNCTION__, __LINE__)
+
+bool32 sl_internal_log_debug(char* text, char* file, char* function, int line)
 {
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
+
+    LogBuffer log_buffer = {};
+    sl_buffer_append_string(&log_buffer,"[DEBUG]: " );
+    sl_buffer_append_string(&log_buffer,text);
+    
+    sl_log_level_change(LogLevel_Debug);
+    bool32 result = sl_internal_log(log_buffer.buffer, file, function, line);
+    sl_log_level_reset();
+    return(result);    
+}
+
+#define sl_log_debugf(fmt, ...) sl_internal_log_debugf(__FILE__,__FUNCTION__,__LINE__,fmt, __VA_ARGS__)
+
+bool32 sl_internal_log_debugf(char* file, char* function, int line, char* fmt, ...)
+{
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
+
+    LogBuffer log_buffer = {};
+    sl_buffer_append_string(&log_buffer,"[DEBUG]: " );
+    
+    va_list args;
+    va_start(args, fmt);    
+    int32 result = sl_internal_print_to_buffer(&log_buffer, fmt, args);
+    va_end(args);
+    
+    if(result < 0){
+        Assert(!"Something bad happened");
+    }
+    
+    sl_log_level_change(LogLevel_Debug);
+    result = sl_internal_log(log_buffer.buffer, file, function, line);
+    sl_log_level_reset();
+    return(result);    
+}
+
+
+#define sl_log_fatal(text) sl_internal_log_fatal(text, __FILE__, __FUNCTION__, __LINE__)
+
+void sl_internal_log_fatal(char* text, char* file, char* function, int line)
+{
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
+
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[***FATAL ERROR***]: ");
     sl_buffer_append_string(&log_buffer,text);
 
     sl_log_level_change(LogLevel_Fatal);
-    sl_log(log_buffer.buffer);
+    sl_internal_log(log_buffer.buffer, file, function, line);
     sl_log_level_reset();
     
     //NOTE: Crash!
     Assert(!"FATAL ERROR");
 }
 
-void
-sl_log_fatalf(char* fmt, ...)
-{    
+#define sl_log_fatalf(fmt, ...) sl_internal_log_fatalf(__FILE__,__FUNCTION__,__LINE__,fmt, __VA_ARGS__)
+
+void sl_internal_log_fatalf(char* file, char* function, int line,char* fmt, ...)
+{
+    LogState* log_state = sl_logstate_get();
+    Assert(log_state);
+
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[***FATAL ERROR***]: ");
     
     va_list args;
-    va_start(args, fmt);    
-    int32 result = vsprintf(log_buffer.buffer, fmt,args);
+    va_start(args, fmt);
+    int32 result = sl_internal_print_to_buffer(&log_buffer, fmt, args);
     va_end(args);
     
     if(result < 0){
@@ -978,7 +1034,7 @@ sl_log_fatalf(char* fmt, ...)
     }
 
     sl_log_level_change(LogLevel_Fatal);
-    sl_log(log_buffer.buffer);
+    sl_internal_log(log_buffer.buffer, file, function, line);
     sl_log_level_reset();
     //NOTE: Crash on purpose!
     Assert(!"FATAL ERROR");
