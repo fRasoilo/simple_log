@@ -13,8 +13,10 @@
 // - [x]Make sure to update the buffer used everytime we use vsprintf (going to wrap vsprintf to avoid bug due to forgetting to update)
 // - [x]Add option to add file, line, function info to logs.
 
-// - []Differentiate between internal functions and  user facing api functions.
+// - []Organize into header vs implementation
 // - [x]Option to overrride or just write a new log file.
+// - []Write API descriptions including default behaviours and quick usage.
+
 
 #pragma once
 
@@ -36,32 +38,61 @@
 // API --------------
 
 /*
+  //Used to init the log_state. TODO: Finish this description
+  
   void sl_log_init(LogMode log_mode, char* file_path,
-  platform_custom_log_to_file*       platform_custom_log_to_file,
-  platform_custom_log_to_console*    platform_custom_log_to_console = 0,
-  platform_custom_log_to_window*     platform_custom_log_to_window = 0,
-  platform_custom_error_message_box* platform_custom_error_message_box = 0);
+                   platform_custom_log_to_file*       platform_custom_log_to_file,
+                   platform_custom_log_to_console*    platform_custom_log_to_console = 0,
+                   platform_custom_log_to_window*     platform_custom_log_to_window = 0,
+                   platform_custom_error_message_box* platform_custom_error_message_box = 0);
 
-  sl_log_window_set(Handle)  Is a macro that is defined depending on the current platform:
-  sl_win32_log_window_set(HWND Handle) 
+  //A macro that is defined depending on the current platform:
+  //This is used to give the log_state a handle to a user created window where we can log to. CURRENTLY WIN32 only.
+  
+   sl_log_window_set(Handle)  
+   bool32 sl_win32_log_window_set(HWND Handle) 
 
-                 
+  //All the avaliable log functions have basically the same purpose, to log some text to the console or to a file.
+  //All the log functions also have a 'f' variant that supports formatted text.
+  //The main differences are :
+  // - error, warning, info, fatal are pre-appended with the current log level. e.g any text logged with sl_log_error starts with '[ERROR]:' .
+  // - fatal WILL ASSERT and CRASH ON PURPOSE.  TODO: break into debugger
+  // - the different log levels have different color schemes when logged to the console.
+  
   bool32 sl_log(char* text);
   bool32 sl_logf(char* fmt, ...);
+  
   bool32 sl_log_error(char* text);
   bool32 sl_log_errorf(char* fmt, ...);
+  
   bool32 sl_log_warning(char* text);
   bool32 sl_log_warningf(char* fmt, ...);
+  
   bool32 sl_log_info(char* text);
   bool32 sl_log_infof(char* fmt, ...);
+  
   bool32 sl_log_debug(char* text);
   bool32 sl_log_debugf(char* fmt, ...);
+  
   void   sl_log_fatal(char* text);
   void   sl_log_fatalf(char* fmt, ...);
+
+  //Used to open an error message_box with the given text and caption.
+  //The 'fatal' variant WILL ASSERT AND CRASH ON PURPOSE. TODO: break into debugger.
+  
   void   sl_error_message_box(char* text, char* caption = "Error!");
   void   sl_error_message_box_fatal(char* text, char* caption = "FATAL ERROR!");
 
 
+  //Options TODO: In progress...
+  
+  void sl_logstate_auto_newlines_set(bool32 value)
+  void sl_logstate_override_log_file_set(bool32 value)
+  void sl_logstate_display_file_in_log_set(bool32 value)
+  void sl_logstate_display_function_in_log_set(bool32 value)
+  void sl_logstate_display_line_in_log_set(bool32 value)
+
+  
 */
 
 
