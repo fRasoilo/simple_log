@@ -8,13 +8,14 @@
   
 //TODO:
 // - [x]Test all f variants.
-// - []Actually make the define SIMPLE_LOG_IMPLEMENTATION do something.
+// - [x]Actually make the define SIMPLE_LOG_IMPLEMENTATION do something.
 // - [x]Add option to change colors for the different logging functions.
 // - [x]Make sure to update the buffer used everytime we use vsprintf (going to wrap vsprintf to avoid bug due to forgetting to update)
 // - [x]Add option to add file, line, function info to logs.
 
-// - []Organize into header vs implementation
+// - [x]Organize into header vs implementation
 // - [x]Option to overrride or just write a new log file.
+// - []Check the return values on the logging functions.
 // - []Write API descriptions including default behaviours and quick usage.
 
 
@@ -34,67 +35,32 @@
 //
 //  All other files should just include "simple_log.h" without the define
 //=============================================================================
-
-// API --------------
-
-/*
-  //Used to init the log_state. TODO: Finish this description
-  
-  void sl_log_init(LogMode log_mode, char* file_path,
-                   platform_custom_log_to_file*       platform_custom_log_to_file,
-                   platform_custom_log_to_console*    platform_custom_log_to_console = 0,
-                   platform_custom_log_to_window*     platform_custom_log_to_window = 0,
-                   platform_custom_error_message_box* platform_custom_error_message_box = 0);
-
-  //A macro that is defined depending on the current platform:
-  //This is used to give the log_state a handle to a user created window where we can log to. CURRENTLY WIN32 only.
-  
-   sl_log_window_set(Handle)  
-   bool32 sl_win32_log_window_set(HWND Handle) 
-
-  //All the avaliable log functions have basically the same purpose, to log some text to the console or to a file.
-  //All the log functions also have a 'f' variant that supports formatted text.
-  //The main differences are :
-  // - error, warning, info, fatal are pre-appended with the current log level. e.g any text logged with sl_log_error starts with '[ERROR]:' .
-  // - fatal WILL ASSERT and CRASH ON PURPOSE.  TODO: break into debugger
-  // - the different log levels have different color schemes when logged to the console.
-  
-  bool32 sl_log(char* text);
-  bool32 sl_logf(char* fmt, ...);
-  
-  bool32 sl_log_error(char* text);
-  bool32 sl_log_errorf(char* fmt, ...);
-  
-  bool32 sl_log_warning(char* text);
-  bool32 sl_log_warningf(char* fmt, ...);
-  
-  bool32 sl_log_info(char* text);
-  bool32 sl_log_infof(char* fmt, ...);
-  
-  bool32 sl_log_debug(char* text);
-  bool32 sl_log_debugf(char* fmt, ...);
-  
-  void   sl_log_fatal(char* text);
-  void   sl_log_fatalf(char* fmt, ...);
-
-  //Used to open an error message_box with the given text and caption.
-  //The 'fatal' variant WILL ASSERT AND CRASH ON PURPOSE. TODO: break into debugger.
-  
-  void   sl_error_message_box(char* text, char* caption = "Error!");
-  void   sl_error_message_box_fatal(char* text, char* caption = "FATAL ERROR!");
-
-
-  //Options TODO: In progress...
-  
-  void sl_logstate_auto_newlines_set(bool32 value)
-  void sl_logstate_override_log_file_set(bool32 value)
-  void sl_logstate_display_file_in_log_set(bool32 value)
-  void sl_logstate_display_function_in_log_set(bool32 value)
-  void sl_logstate_display_line_in_log_set(bool32 value)
-
-  
-*/
-
+// Basic Usage :
+//
+// After defining SIMPLE_LOG_IMPLEMENTATION
+//
+// call  sl_log_init(LogMode log_mode, char* file_path);
+// with  log_mode  = LogMode_All
+//       file_path = name of the file you want to log to
+//
+// e.g : sl_log_init(LogMode_All, "log.txt");
+//
+// Use   sl_log(text) to log some text to the console and a file.
+// Use   sl_logf(text) to log some formated text to the console and a file.
+//
+// e.g : sl_log("We should not be inside this if!");
+//       sl_logf("The current value is : %f ", float_val);
+//
+//
+// For more information on the different logging functions check the [ API - Logging ] section.
+//
+//===============================================================================
+// API  : API reference can be found further down.
+//        In the following sections (search for) :
+//        API - Init
+//        API - Logging
+//        API - Options
+//===============================================================================  
 
 
 
@@ -125,6 +91,235 @@ typedef int32 bool32;
 #define InvalidCodePath Assert(!"InvalidCodePath")
 #define InvalidDefaultCase default: {InvalidCodePath;} break
 #define Assert(Expression) if(!(Expression)) {*(int *)0 = 0;}
+
+//[INTERNAL] Function Pointers Typedefs
+struct LogState;
+#define PLATFORM_CUSTOM_LOG_TO_FILE(name) bool32 name(LogState* log_state, char* text)
+typedef PLATFORM_CUSTOM_LOG_TO_FILE(platform_custom_log_to_file);
+
+#define PLATFORM_CUSTOM_LOG_TO_WINDOW(name) bool32 name(LogState* log_state,char* text)
+typedef PLATFORM_CUSTOM_LOG_TO_WINDOW(platform_custom_log_to_window);
+
+#define PLATFORM_CUSTOM_LOG_TO_CONSOLE(name) bool32 name(LogState* log_state,char* text)
+typedef PLATFORM_CUSTOM_LOG_TO_CONSOLE(platform_custom_log_to_console);
+
+#define PLATFORM_CUSTOM_ERROR_MESSAGE_BOX(name) void name(char* text, char* caption)
+typedef PLATFORM_CUSTOM_ERROR_MESSAGE_BOX(platform_custom_error_message_box);
+
+
+//=============================================================================
+// API - Init
+//
+//=============================================================================
+enum LogMode
+{
+    LogMode_File               = 0x1,
+    LogMode_Dialog             = 0x2,
+    LogMode_FileAndDialog      = 0x3,
+    LogMode_Console            = 0x4,
+    LogMode_FileAndConsole     = 0x5,
+    LogMode_DialogAndConsole   = 0x6,
+    LogMode_All                = 0x7
+};
+
+//Used to init the log_state.This should be called before any logging is done.
+//log_mode  - specifies the type of logging we want to do , all options are in the LogMode enum.
+//file_path - specifies the file_path (and name) of the file you want to log to.
+//
+//These represent function pointers to custom logging functions that the user can provide to the log_state.
+//If no custom logging functions are provided or if any of the pointers are set to Null or zero then the log_state will use the default log functions.
+//The functions must have the following signature : func_name(LogState* log_state, char* text);
+//Where log_state is a pointer to the internal LogState struct,  and text is the text to be logged.
+//
+// platform_custom_log_to_file      
+// platform_custom_log_to_console
+// platform_custom_log_to_window
+// platform_custom_error_message_box
+
+void sl_log_init(LogMode log_mode, char* file_path = '\0',
+                 platform_custom_log_to_file*       platform_custom_log_to_file = 0,
+                 platform_custom_log_to_console*    platform_custom_log_to_console = 0,
+                 platform_custom_log_to_window*     platform_custom_log_to_window = 0,
+                 platform_custom_error_message_box* platform_custom_error_message_box = 0);
+
+                   
+//A macro that is defined depending on the current platform:
+//This is used to give the log_state a handle to a user created window where we can log to. CURRENTLY WIN32 only.
+  
+//sl_log_window_set(Handle)  
+//   bool32 sl_win32_log_window_set(HWND Handle) 
+
+//=============================================================================
+// API - Logging
+//
+//=============================================================================
+
+//All the avaliable log functions have basically the same purpose, to log some text to the console or to a file.
+//All the log functions also have a 'f' variant that supports formatted text.
+//The main differences are :
+// - error, warning, info, fatal are pre-appended with the current log level. e.g any text logged with sl_log_error starts with '[ERROR]:' .
+// - fatal WILL ASSERT and CRASH ON PURPOSE.  TODO: break into debugger
+// - the different log levels have different color schemes when logged to the console.
+//TODO: Return
+  
+//bool32 sl_log(char* text);
+//bool32 sl_logf(char* fmt, ...);
+  
+//bool32 sl_log_error(char* text);
+//bool32 sl_log_errorf(char* fmt, ...);
+  
+//bool32 sl_log_warning(char* text);
+//bool32 sl_log_warningf(char* fmt, ...);
+  
+//bool32 sl_log_info(char* text);
+//bool32 sl_log_infof(char* fmt, ...);
+
+//bool32 sl_log_debug(char* text);
+//bool32 sl_log_debugf(char* fmt, ...);
+
+//void   sl_log_fatal(char* text);
+//void   sl_log_fatalf(char* fmt, ...);
+
+
+//Used to open an error message_box with the given text and caption.
+//The 'fatal' variant WILL ASSERT AND CRASH ON PURPOSE. TODO: break into debugger.
+  
+void   sl_error_message_box(char* text, char* caption = "Error!");
+void   sl_error_message_box_fatal(char* text, char* caption = "FATAL ERROR!");
+
+//=============================================================================
+// API - Options
+//
+//=============================================================================
+
+//Options
+//The log_state contains some options that can be edited by a user.
+
+//The LogState struct stores an array of colors for each LogLevel.
+//The LogLevelColor is a struct that contains a color element (a 8bit unsigned integer). This color element contains the information for both
+//foreground (fg) and background (bg) colors for a LogLevel. Foreground and Background color values are 8bit values that can be 'ORed' together.
+//E.G : If we want an intense blue foregound color with a red background we can do the following : uint8 color = ConsoleFG_Blue|ConsoleFG_Intensity|ConsoleBG_Red;
+//All the available Foreground colors can be found in the enum ConsoleFG.
+//All the available Background Colors can be found in the enum ConsoleBG.
+//The ConsoleFG_Intensity and ConsoleBG_Intensity allows us to get more vibrant colors (at least in the Windows console).
+//These colors are only applicable to logging to a console.
+//
+
+enum LogLevel
+{
+    LogLevel_Normal,
+    LogLevel_Warning,
+    LogLevel_Error,
+    LogLevel_Info,
+    LogLevel_Debug,
+    LogLevel_Fatal,
+
+    LogLevel_Count
+};
+
+struct LogLevelColor
+{
+    uint8 color;
+};
+
+//Returns a LogLevelColor struct with the current color for a given LogLevel.
+LogLevelColor sl_loglevel_color_get(LogLevel level);
+
+
+
+/*
+//These are dependent on some other valued being defined, so they are defined further down.
+//They are put here for API reference.
+enum ConsoleFG
+{
+ConsoleFG_Black     
+ConsoleFG_Blue      
+ConsoleFG_Green     
+ConsoleFG_Cyan       
+ConsoleFG_Red        
+ConsoleFG_Magenta    
+ConsoleFG_Yellow     
+ConsoleFG_Grey       
+ConsoleFG_Intensity 
+    
+};
+
+enum ConsoleBG
+{
+ConsoleBG_Black     
+ConsoleBG_Blue      
+ConsoleBG_Green     
+ConsoleBG_Cyan       
+ConsoleBG_Red        
+ConsoleBG_Magenta    
+ConsoleBG_Yellow     
+ConsoleBG_Grey       
+ConsoleBG_Intensity 
+};
+
+*/
+//Sets the color (foreground and background) for a given LogLevel level.
+//color here is supposed to be the 'ORed' foreground and background colors.
+//If you only one to pass in a fg or a bg color look further down for another function that does that.
+//If color only contains a fg or a bg color than the missing component will be zero and will assume the current color set by the user's console (at least in the Windows console).
+//This function also returns the previous set color (both fg and bg) and its the user's responsibility to save it for future use.
+  
+LogLevelColor sl_loglevel_color_set(LogLevel level, uint8 color);
+
+//Same as above, but foreground and background can be passed in separatly.
+//This function also returns the previous set color (both fg and bg) and its the user's responsibility to save it for future use.
+  
+LogLevelColor sl_loglevel_color_set(LogLevel level, uint8 foreground, uint8 background);
+  
+//These two functions set the foreground and the background colors for a given LogLevel.
+//If we are setting the foreground color then the background will be kept as it was, and vice-versa.
+//These functions also return the previous set color (both fg and bg) and its the user's responsibility to save it for future use.
+
+LogLevelColor sl_loglevel_color_fg_set(LogLevel level, uint8 foreground);
+LogLevelColor sl_loglevel_color_bg_set(LogLevel level, uint8 background);
+
+//Used to set the value of the auto_newlines option of the LogState.
+//DEFAULT VALUE for auto_newlines is true.
+//auto_newlines specifies whether there should be a new line after each log, so that each call to a log function comes in it's own line.
+//This avoids a user having to write '\n' each time they want to log something.
+  
+void sl_logstate_auto_newlines_set(bool32 value);
+
+//Used to set the value of the override_log_file option of the LogState.
+//DEFAULT VALUE for override_log_file is false.
+//override_log_file specifies whether we should overrride the file ,given in file_path argument to sl_log_init.
+//By default we don't override this file so everytime that we run a program we pre-append the file_path with the current date and time.
+//However if the persistance of this file between program runs is not important then we can set this to true and override the file with each run of the program.
+  
+void sl_logstate_override_log_file_set(bool32 value);
+
+//These three functions set the following options of the LogState.
+//DEFAULT VALUE display_file_in_log     = false;
+//DEFAULT VALUE display_function_in_log = false;
+//DEFAULT VALUE display_line_in_log     = false;
+//These options determines whether we should include the file where a log was called from, the function where a log was called from and the line where a log was called from.
+
+void sl_logstate_display_file_in_log_set(bool32 value);
+void sl_logstate_display_function_in_log_set(bool32 value);
+void sl_logstate_display_line_in_log_set(bool32 value);
+
+//Sets all these options to the passed value
+//display_file_in_log     
+//display_function_in_log 
+//display_line_in_log     
+
+void sl_logstate_verbose_set(bool32 value);
+
+
+//END API -------------------------------
+
+
+
+
+//===============================================================================  
+// [IMPLEMENTATION]
+//===============================================================================  
+#ifdef SIMPLE_LOG_IMPLEMENTATION
 
 // [INTERNAL] Log Buffer
 #define LOG_BUFFER_SIZE KiloBytes(1)
@@ -182,60 +377,14 @@ struct DateAndTime
 };
 // END Date and Time
 
-// [INTERNAL] Log --------------
-enum LogMode
-{
-    LogMode_File               = 0x1,
-    LogMode_Dialog             = 0x2,
-    LogMode_FileAndDialog      = 0x3,
-    LogMode_Console            = 0x4,
-    LogMode_FileAndConsole     = 0x5,
-    LogMode_DialogAndConsole   = 0x6,
-    LogMode_All                = 0x7
-};
-
-enum LogLevel
-{
-    LogLevel_Normal,
-    LogLevel_Warning,
-    LogLevel_Error,
-    LogLevel_Info,
-    LogLevel_Debug,
-    LogLevel_Fatal,
-
-
-    LogLevel_Count
-};
+// [INTERNAL] LogState --------------
 
 // [INTERNAL] Forward Declare
-
-struct LogState;
 internal void sl_buffer_append_string(LogBuffer* log_buffer, char* string);
 internal void sl_buffer_append_newline(LogBuffer* log_buffer);
-
 inline  int32 sl_string_length(char* string);
 inline int32 sl_string_size(char* string);
-
 internal int32 sl_internal_print_to_buffer(LogBuffer* log_buffer, char* fmt,va_list args);
-
-
-#define PLATFORM_CUSTOM_LOG_TO_FILE(name) bool32 name(LogState* log_state, char* text)
-typedef PLATFORM_CUSTOM_LOG_TO_FILE(platform_custom_log_to_file);
-
-#define PLATFORM_CUSTOM_LOG_TO_WINDOW(name) bool32 name(LogState* log_state,char* text)
-typedef PLATFORM_CUSTOM_LOG_TO_WINDOW(platform_custom_log_to_window);
-
-#define PLATFORM_CUSTOM_LOG_TO_CONSOLE(name) bool32 name(LogState* log_state,char* text)
-typedef PLATFORM_CUSTOM_LOG_TO_CONSOLE(platform_custom_log_to_console);
-
-#define PLATFORM_CUSTOM_ERROR_MESSAGE_BOX(name) void name(char* text, char* caption)
-typedef PLATFORM_CUSTOM_ERROR_MESSAGE_BOX(platform_custom_error_message_box);
-
-struct LogLevelColor
-{
-        uint8 color;
-};
-
 
 struct LogState
 {
@@ -260,30 +409,21 @@ struct LogState
     bool32 display_function_in_log = false;
     bool32 display_line_in_log     = false;
 
-    //Internal flag that acts as a shortcut so we can figure out if the normal log's colors have been modified.
-    bool32 loglevel_normal_modified = false;
-    //
-    
     LogLevelColor colors[LogLevel_Count];
-    
-    
+        
     //NOTE(filipe): Win32 Specific  
     HANDLE FileHandle;
     HWND   DialogHandle;
     
 };
-// END Log
-
-
-
-
-// [IMPLEMENTATION]
 
 LogState* sl_logstate_get(void)
 {
     local_persist LogState log_state = {};
     return(&log_state);
 }
+
+// END LogState
 
 
 
@@ -378,7 +518,6 @@ void sl_time_string_get(DateAndTime date_and_time, LogBuffer* buffer, char* sepa
 
 //[INTERNAL] Print Color --------------
 
-
 //WIN32
 #if _WIN32
 #define sl_print_color(Text,TextColor)  sl_win32_print_color(Text, TextColor)
@@ -416,6 +555,7 @@ void sl_time_string_get(DateAndTime date_and_time, LogBuffer* buffer, char* sepa
 
 
 //Console Foreground Colors
+//[API]
 enum ConsoleFG
 {
     ConsoleFG_Black     = SL_CONSOLE_FG_BLACK,
@@ -430,6 +570,7 @@ enum ConsoleFG
     
 };
 //Console Background Colors
+//[API]
 enum ConsoleBG
 {
     ConsoleBG_Black     = SL_CONSOLE_BG_BLACK,
@@ -443,10 +584,11 @@ enum ConsoleBG
     ConsoleBG_Intensity = SL_CONSOLE_BG_INTENSITY,
 };
 
-
 //END Print Color --------------
 
-//Win32 Specific --------------
+//[INTERNAL] Win32 Specific --------------
+
+#if _WIN32
 
 internal bool32 sl_win32_string_write_to_console(char* string);
 
@@ -479,7 +621,6 @@ void sl_win32_print_color(char* text, WORD ColorAttributes)
         SetConsoleTextAttribute(StdOut, OldColorAttribs);
     }    
 }
-
 
 DateAndTime sl_win32_date_and_time_get()
 {
@@ -551,7 +692,6 @@ internal bool32 sl_win32_default_log_to_list_box(LogState* log_state, char* text
     */
     return(result);
 }
-
 
 
 internal bool32
@@ -641,7 +781,6 @@ sl_win32_default_log_to_console(LogState* log_state, char* text)
     return(true);
 }
 
-
 internal void sl_win32_default_error_message_box(char* text, char* caption = "Error!")
 {
     //Needs User32.lib
@@ -661,20 +800,34 @@ bool32 sl_win32_log_window_set(HWND dialog)
     return(result);
 }
 
+internal bool32 sl_win32_string_write_to_console(char* string)
+{
+    bool32 result = false;
+    HANDLE StdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if(StdOut != INVALID_HANDLE_VALUE)
+    {
+        DWORD BytesWritten;
+        WriteFile(StdOut,
+                  string,
+                  sl_string_size(string),
+                  &BytesWritten, 0);
+        result = true;
+    }
+    return(result);
+}
+
+#endif //_WIN32
+
 //END Win32 Specific --------------
 
 //Platform Independent --------------
 
-//TODO: Need to make some different versions of this function, otherwise
-//we are not able no init with only a few of the custom hooks. For example in this
-//version we cant init custom hook for log to window without also initing file and
-//console.
-
-void sl_log_init(LogMode log_mode, char* file_path = '\0',
-                 platform_custom_log_to_file*       platform_custom_log_to_file = 0,
-                 platform_custom_log_to_console*    platform_custom_log_to_console = 0,
-                 platform_custom_log_to_window*     platform_custom_log_to_window = 0,
-                 platform_custom_error_message_box* platform_custom_error_message_box = 0)
+//[API]
+void sl_log_init(LogMode log_mode, char* file_path,
+                 platform_custom_log_to_file*       platform_custom_log_to_file,
+                 platform_custom_log_to_console*    platform_custom_log_to_console,
+                 platform_custom_log_to_window*     platform_custom_log_to_window,
+                 platform_custom_error_message_box* platform_custom_error_message_box)
 {
     LogState* log_state = sl_logstate_get();
 
@@ -682,7 +835,6 @@ void sl_log_init(LogMode log_mode, char* file_path = '\0',
     log_state->initialized = true;
     log_state->log_mode  = (LogMode)log_mode;
     log_state->file_path = file_path;
-
 
     //Set to defualt first and then override if we passed in any custom functions.
 #if _WIN32
@@ -726,7 +878,6 @@ void sl_log_init(LogMode log_mode, char* file_path = '\0',
         
 }
 
-//TODO: Replace internal, from gw_tool
 internal void
 sl_log_level_change(LogLevel log_level)
 {
@@ -1137,9 +1288,7 @@ void sl_internal_log_fatalf(char* file, char* function, int line,char* fmt, ...)
     Assert(!"FATAL ERROR");
 }
 
-
-void
-sl_error_message_box(char* text, char* caption = "Error!")
+void sl_error_message_box(char* text, char* caption)
 {
     LogState* log_state = sl_logstate_get();
     Assert(log_state);
@@ -1149,9 +1298,7 @@ sl_error_message_box(char* text, char* caption = "Error!")
     }
 }
 
-
-void
-sl_error_message_box_fatal(char* text, char* caption = "FATAL ERROR!")
+void sl_error_message_box_fatal(char* text, char* caption)
 {
     LogState* log_state = sl_logstate_get();
     Assert(log_state);
@@ -1175,8 +1322,7 @@ sl_error_message_box_fatal(char* text, char* caption = "FATAL ERROR!")
 
 //END Platform Independent --------------
 
-// LogState Options --------------
-
+//[API] LogState Options --------------
 LogLevelColor sl_loglevel_color_get(LogLevel level)
 {
     LogState* log_state = sl_logstate_get();
@@ -1275,7 +1421,6 @@ LogLevelColor sl_loglevel_color_bg_set(LogLevel level, uint8 background)
     }
 }
 
-
 void sl_logstate_auto_newlines_set(bool32 value)
 {
     LogState* log_state = sl_logstate_get();
@@ -1318,19 +1463,17 @@ void sl_logstate_display_line_in_log_set(bool32 value)
     }
 }
 
+void sl_logstate_verbose_set(bool32 value)
+{
+    sl_logstate_display_file_in_log_set(value);
+    sl_logstate_display_function_in_log_set(value);
+    sl_logstate_display_line_in_log_set(value);
+}
 
 //END LogState Options --------------
 
 
-
-
-
-
-
-//IMPORTANT: NEED TO ORGANIZE THESE BETTER
-
 // Buffer Utilities --------------
-
 
 inline  int32
 sl_string_length(char* string)
@@ -1343,7 +1486,6 @@ sl_string_length(char* string)
     return(count);
 }
 
-
 inline int32
 sl_string_size(char* string)
 {
@@ -1352,7 +1494,6 @@ sl_string_size(char* string)
     int32 size = length / sizeof(string[0]);
     return(size);
 }
-
 
 internal void
 sl_buffer_append_string(LogBuffer* log_buffer, char* string)
@@ -1370,7 +1511,6 @@ sl_buffer_append_string(LogBuffer* log_buffer, char* string)
     log_buffer->buffer[log_buffer->used] = '\0';    
 }
 
-
 internal void
 sl_buffer_append_newline(LogBuffer* log_buffer)
 {
@@ -1381,7 +1521,6 @@ sl_buffer_append_newline(LogBuffer* log_buffer)
     log_buffer->buffer[log_buffer->used] = '\0';    
 }
 
-
 internal int32
 sl_internal_print_to_buffer(LogBuffer* log_buffer, char* fmt,va_list args)
 {
@@ -1389,23 +1528,6 @@ sl_internal_print_to_buffer(LogBuffer* log_buffer, char* fmt,va_list args)
     log_buffer->used += result*sizeof( log_buffer->buffer[0]);
     return(result);
 }
+//END Buffer Utilites -----
 
-//END Buffer Utilites
-
-
-//TODO: Move to WIn32 section.
-internal bool32 sl_win32_string_write_to_console(char* string)
-{
-    bool32 result = false;
-    HANDLE StdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    if(StdOut != INVALID_HANDLE_VALUE)
-    {
-        DWORD BytesWritten;
-        WriteFile(StdOut,
-                  string,
-                  sl_string_size(string),
-                  &BytesWritten, 0);
-        result = true;
-    }
-    return(result);
-}
+#endif //SIMPLE_LOG_IMPLEMENTATION
