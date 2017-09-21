@@ -128,7 +128,15 @@ enum LogMode
 //
 //These represent function pointers to custom logging functions that the user can provide to the log_state.
 //If no custom logging functions are provided or if any of the pointers are set to Null or zero then the log_state will use the default log functions.
-//The functions must have the following signature : func_name(LogState* log_state, char* text);
+//The functions for platform_custom_log_to_file
+//                  platform_custom_log_to_console
+//                  platform_custom_log_to_window
+//must have the following signature :
+//                  bool32 func_name(LogState* log_state, char* text);
+//The functions for platform_custom_error_message_box
+//must have the following signature :
+//                  void func_name(LogState* log_state, char* text);
+
 //Where log_state is a pointer to the internal LogState struct,  and text is the text to be logged.
 //
 // platform_custom_log_to_file      
@@ -160,7 +168,7 @@ void sl_log_init(LogMode log_mode, char* file_path = '\0',
 // - error, warning, info, fatal are pre-appended with the current log level. e.g any text logged with sl_log_error starts with '[ERROR]:' .
 // - fatal WILL ASSERT and CRASH ON PURPOSE.  TODO: break into debugger
 // - the different log levels have different color schemes when logged to the console.
-//TODO: Return
+// - the log functions return a bool32 result that determines whether the logging was done succesfully or not.
   
 //bool32 sl_log(char* text);
 //bool32 sl_logf(char* fmt, ...);
@@ -594,11 +602,11 @@ internal bool32 sl_win32_string_write_to_console(char* string);
 
 
 //NOTE: Does not support Black BG unless the console is already black.
-void sl_win32_print_color(char* text, WORD ColorAttributes)
+bool32 sl_win32_print_color(char* text, WORD ColorAttributes)
 {
     HANDLE StdOut;
     CONSOLE_SCREEN_BUFFER_INFO ConsoleScreenBufferInfo;
-
+    bool32 result = 0;
     //TODO:Maybe just attach in one central point when we
     //choose to log to the console? Instead of calling AttachConsole over and over
     // again here.
@@ -619,7 +627,8 @@ void sl_win32_print_color(char* text, WORD ColorAttributes)
 
         sl_win32_string_write_to_console(text);
         SetConsoleTextAttribute(StdOut, OldColorAttribs);
-    }    
+    }
+    return(result);
 }
 
 DateAndTime sl_win32_date_and_time_get()
@@ -755,6 +764,7 @@ sl_win32_default_log_to_file(LogState* log_state, char* text)
 internal bool32
 sl_win32_default_log_to_console(LogState* log_state, char* text)
 {
+    bool32 result = false;
     LogBuffer buffer_to_write_out = {};
     sl_buffer_append_string(&buffer_to_write_out,text );
     if(log_state->auto_newlines){
@@ -766,19 +776,19 @@ sl_win32_default_log_to_console(LogState* log_state, char* text)
         //TODO: Check if Normal has been modified, call sl_print_color and use provided values if it has.
         case LogLevel_Normal :
         {
-            if(log_state->colors[LogLevel_Normal].color == SL_CONSOLE_DEFAULT_VALUE) sl_print(buffer_to_write_out.buffer);
-            else sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Normal].color);
+            if(log_state->colors[LogLevel_Normal].color == SL_CONSOLE_DEFAULT_VALUE) result = sl_print(buffer_to_write_out.buffer);
+            else  result = sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Normal].color);
         }break;
         
-        case LogLevel_Warning: { sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Warning].color); }break;
-        case LogLevel_Error  : { sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Error].color);   }break;
-        case LogLevel_Info   : { sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Info].color);    }break;
-        case LogLevel_Debug  : { sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Debug].color);   }break;
-        case LogLevel_Fatal  : { sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Fatal].color);   }break;
+        case LogLevel_Warning: { result = sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Warning].color); }break;
+        case LogLevel_Error  : { result = sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Error].color);   }break;
+        case LogLevel_Info   : { result = sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Info].color);    }break;
+        case LogLevel_Debug  : { result = sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Debug].color);   }break;
+        case LogLevel_Fatal  : { result = sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Fatal].color);   }break;
             
         InvalidDefaultCase;                
     }
-    return(true);
+    return(result);
 }
 
 internal void sl_win32_default_error_message_box(char* text, char* caption = "Error!")
