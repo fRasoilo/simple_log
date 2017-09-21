@@ -15,15 +15,26 @@
 
 // - [x]Organize into header vs implementation
 // - [x]Option to overrride or just write a new log file.
-// - []Check the return values on the logging functions.
-// - []Write API descriptions including default behaviours and quick usage.
+// - [x]Check the return values on the logging functions.
+// - [x]Write API descriptions including default behaviours and quick usage.
 
+// - []Clear Todos
+// - []Decide what to do with the Window Logging
+// - [x]License
+// - []Summary
 
 #pragma once
 
 
 //Simple Log --------------
 
+//=============================================================================
+// Summary
+//
+//=============================================================================
+// Revision History
+//
+//
 //===============================================================================  
 //  You MUST define SIMPLE_LOG_IMPLEMENTATION
 //
@@ -464,11 +475,8 @@ void sl_date_string_get(DateAndTime date_and_time,LogBuffer* buffer, char* separ
             InvalidDefaultCase;
     }
     //NOTE: 1 - 31 and \0 -> size 3
-    char day[3];
-    
-    //IntToStr(date_and_time.day, day); //TODO: Check!
+    char day[3];    
     sprintf(day, "%d",date_and_time.day);
-    
     char* day_post_fix;
     switch(date_and_time.day)
     {
@@ -506,20 +514,15 @@ void sl_time_string_get(DateAndTime date_and_time, LogBuffer* buffer, char* sepa
     char minute[2]; // 0 - 60
     char second[2]; // 0 - 60
 
-    //TODO: Check
     sprintf(hour, "%d",date_and_time.hour);
     sprintf(minute, "%d",date_and_time.minute);
     sprintf(second, "%d",date_and_time.second);
-    //IntToStr(date_and_time.hour,    hour);
-    //IntToStr(date_and_time.minute,  minute);
-    //IntToStr(date_and_time.second,  second);
 
     sl_buffer_append_string(buffer,hour);
     sl_buffer_append_string(buffer, separator);
     sl_buffer_append_string(buffer, minute);
     sl_buffer_append_string(buffer, separator);
-    sl_buffer_append_string(buffer, second);
-    
+    sl_buffer_append_string(buffer, second);    
 }
 
 //END Date and Time --------------
@@ -1541,3 +1544,30 @@ sl_internal_print_to_buffer(LogBuffer* log_buffer, char* fmt,va_list args)
 //END Buffer Utilites -----
 
 #endif //SIMPLE_LOG_IMPLEMENTATION
+
+
+//
+
+/*
+The MIT License (MIT)
+
+Copyright (c) 2017 Filipe Rasoilo www.rasoilo.com
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
