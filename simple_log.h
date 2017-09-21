@@ -9,7 +9,7 @@
 //TODO:
 // - [x]Test all f variants.
 // - []Actually make the define SIMPLE_LOG_IMPLEMENTATION do something.
-// - []Add option to change colors for the different logging functions.
+// - [x]Add option to change colors for the different logging functions.
 // - [x]Make sure to update the buffer used everytime we use vsprintf (going to wrap vsprintf to avoid bug due to forgetting to update)
 // - [x]Add option to add file, line, function info to logs.
 
@@ -107,6 +107,8 @@
 #include <stdint.h>
 //Unsigned
 typedef uint32_t uint32;
+typedef uint16_t uint16;
+typedef uint8_t  uint8;
 //Signed
 typedef int32_t int32;
 //Bool
@@ -197,9 +199,12 @@ enum LogLevel
     LogLevel_Normal,
     LogLevel_Warning,
     LogLevel_Error,
-    LogLevel_Fatal,
     LogLevel_Info,
-    LogLevel_Debug
+    LogLevel_Debug,
+    LogLevel_Fatal,
+
+
+    LogLevel_Count
 };
 
 // [INTERNAL] Forward Declare
@@ -226,6 +231,12 @@ typedef PLATFORM_CUSTOM_LOG_TO_CONSOLE(platform_custom_log_to_console);
 #define PLATFORM_CUSTOM_ERROR_MESSAGE_BOX(name) void name(char* text, char* caption)
 typedef PLATFORM_CUSTOM_ERROR_MESSAGE_BOX(platform_custom_error_message_box);
 
+struct LogLevelColor
+{
+        uint8 color;
+};
+
+
 struct LogState
 {
     bool32   initialized;
@@ -243,10 +254,15 @@ struct LogState
 
     //Options struct
     bool32 auto_newlines           = true;
+    bool32 intense_fg_colors       = true;
+
     bool32 override_log_file       = false;
     bool32 display_file_in_log     = false;
     bool32 display_function_in_log = false;
     bool32 display_line_in_log     = false;
+
+    LogLevelColor colors[LogLevel_Count];
+    
     
     //NOTE(filipe): Win32 Specific  
     HANDLE FileHandle;
@@ -365,34 +381,62 @@ void sl_time_string_get(DateAndTime date_and_time, LogBuffer* buffer, char* sepa
 #define sl_print_color(Text,TextColor)  sl_win32_print_color(Text, TextColor)
 #define sl_print(Text)                  sl_win32_string_write_to_console(Text)
 
-#define SL_CONSOLE_FOREGROUND_BLACK     0x0000
-#define SL_CONSOLE_FOREGROUND_BLUE      0x0001
-#define SL_CONSOLE_FOREGROUND_GREEN     0x0002
-#define SL_CONSOLE_FOREGROUND_CYAN      0x0003
-#define SL_CONSOLE_FOREGROUND_RED       0x0004
-#define SL_CONSOLE_FOREGROUND_MAGENTA   0x0005
-#define SL_CONSOLE_FOREGROUND_YELLOW    0x0006
-#define SL_CONSOLE_FOREGROUND_GREY      0x0007
-#define SL_CONSOLE_FOREGROUND_INTENSITY 0x0008 //foreground color is intensified.
+#define SL_CONSOLE_FG_BLACK     0x0000
+#define SL_CONSOLE_FG_BLUE      0x0001
+#define SL_CONSOLE_FG_GREEN     0x0002
+#define SL_CONSOLE_FG_CYAN      0x0003
+#define SL_CONSOLE_FG_RED       0x0004
+#define SL_CONSOLE_FG_MAGENTA   0x0005
+#define SL_CONSOLE_FG_YELLOW    0x0006
+#define SL_CONSOLE_FG_GREY      0x0007
+#define SL_CONSOLE_FG_INTENSITY 0x0008 //foreground color is intensified.
 
-#define SL_CONSOLE_BACKGROUND_BLACK     0x0000
-#define SL_CONSOLE_BACKGROUND_BLUE      0x0010
-#define SL_CONSOLE_BACKGROUND_GREEN     0x0020
-#define SL_CONSOLE_BACKGROUND_CYAN      0x0030
-#define SL_CONSOLE_BACKGROUND_RED       0x0040
-#define SL_CONSOLE_BACKGROUND_MAGENTA   0x0050
-#define SL_CONSOLE_BACKGROUND_YELLOW    0x0060
-#define SL_CONSOLE_BACKGROUND_GREY      0x0070
-#define SL_CONSOLE_BACKGROUND_INTENSITY 0x0080 // background color is intensified.
+#define SL_CONSOLE_BG_BLACK     0x0000 //TODO: Is this black or the current color of the console?
+#define SL_CONSOLE_BG_BLUE      0x0010
+#define SL_CONSOLE_BG_GREEN     0x0020
+#define SL_CONSOLE_BG_CYAN      0x0030
+#define SL_CONSOLE_BG_RED       0x0040
+#define SL_CONSOLE_BG_MAGENTA   0x0050
+#define SL_CONSOLE_BG_YELLOW    0x0060
+#define SL_CONSOLE_BG_GREY      0x0070
+#define SL_CONSOLE_BG_INTENSITY 0x0080 // background color is intensified.
 
-#define EXTRACT_BG(Value) (Value & 0xF0)
-#define EXTRACT_FG(Value) (Value & 0x0F)
+#define SL_EXTRACT_BG(Value) (Value & 0xF0)
+#define SL_EXTRACT_FG(Value) (Value & 0x0F)
 
 #else
 #error No other OS defined!
 #endif //END WIN32
 //TODO: Other OS
 
+
+//Console Foreground Colors
+enum ConsoleFG
+{
+    ConsoleFG_Black     = SL_CONSOLE_FG_BLACK,
+    ConsoleFG_Blue      = SL_CONSOLE_FG_BLUE,
+    ConsoleFG_Green     = SL_CONSOLE_FG_GREEN,
+    ConsoleFG_Cyan      = SL_CONSOLE_FG_CYAN,      
+    ConsoleFG_Red       = SL_CONSOLE_FG_RED,       
+    ConsoleFG_Magenta   = SL_CONSOLE_FG_MAGENTA,   
+    ConsoleFG_Yellow    = SL_CONSOLE_FG_YELLOW,    
+    ConsoleFG_Grey      = SL_CONSOLE_FG_GREY,      
+    ConsoleFG_Intensity = SL_CONSOLE_FG_INTENSITY,
+    
+};
+//Console Background Colors
+enum ConsoleBG
+{
+    ConsoleBG_Black     = SL_CONSOLE_BG_BLACK,
+    ConsoleBG_Blue      = SL_CONSOLE_BG_BLUE,
+    ConsoleBG_Green     = SL_CONSOLE_BG_GREEN,
+    ConsoleBG_Cyan      = SL_CONSOLE_BG_CYAN,      
+    ConsoleBG_Red       = SL_CONSOLE_BG_RED,       
+    ConsoleBG_Magenta   = SL_CONSOLE_BG_MAGENTA,   
+    ConsoleBG_Yellow    = SL_CONSOLE_BG_YELLOW,    
+    ConsoleBG_Grey      = SL_CONSOLE_BG_GREY,      
+    ConsoleBG_Intensity = SL_CONSOLE_BG_INTENSITY,
+};
 
 
 //END Print Color --------------
@@ -418,8 +462,8 @@ void sl_win32_print_color(char* text, WORD ColorAttributes)
     {
         GetConsoleScreenBufferInfo(StdOut, &ConsoleScreenBufferInfo);
         WORD OldColorAttribs = ConsoleScreenBufferInfo.wAttributes;
-        WORD CurrentBG = EXTRACT_BG(OldColorAttribs);
-        WORD ColorAttributesBG = EXTRACT_BG(ColorAttributes);
+        WORD CurrentBG = SL_EXTRACT_BG(OldColorAttribs);
+        WORD ColorAttributesBG = SL_EXTRACT_BG(ColorAttributes);
         if(ColorAttributesBG)
         {
             CurrentBG = ColorAttributesBG;
@@ -574,12 +618,14 @@ sl_win32_default_log_to_console(LogState* log_state, char* text)
 
     switch(log_state->log_level)
     {
+        //TODO: Check if Normal has been modified, call sl_print_color and use provided values if it has.
         case LogLevel_Normal : { sl_print(buffer_to_write_out.buffer); }break;
-        case LogLevel_Warning: { sl_print_color(buffer_to_write_out.buffer, SL_CONSOLE_FOREGROUND_YELLOW|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_RED); }break;
-        case LogLevel_Error  : { sl_print_color(buffer_to_write_out.buffer, SL_CONSOLE_FOREGROUND_MAGENTA|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_GREY); }break;
-        case LogLevel_Fatal  : { sl_print_color(buffer_to_write_out.buffer, SL_CONSOLE_FOREGROUND_RED|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_GREY); }break;
-        case LogLevel_Info   : { sl_print_color(buffer_to_write_out.buffer, SL_CONSOLE_FOREGROUND_GREEN|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_BLACK); }break;
-        case LogLevel_Debug  : { sl_print_color(buffer_to_write_out.buffer, SL_CONSOLE_FOREGROUND_CYAN|SL_CONSOLE_FOREGROUND_INTENSITY|SL_CONSOLE_BACKGROUND_BLACK); }break;
+        case LogLevel_Warning: { sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Warning].color); }break;
+        case LogLevel_Error  : { sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Error].color);   }break;
+        case LogLevel_Info   : { sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Info].color);    }break;
+        case LogLevel_Debug  : { sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Debug].color);   }break;
+        case LogLevel_Fatal  : { sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Fatal].color);   }break;
+            
         InvalidDefaultCase;                
     }
     return(true);
@@ -658,6 +704,16 @@ void sl_log_init(LogMode log_mode, char* file_path = '\0',
     Assert(log_state->log_to_console_func);
     Assert(log_state->log_to_window_func);
     Assert(log_state->error_message_box_func);
+
+    //Init the color schemes
+    log_state->colors[LogLevel_Normal]  = {(uint8)-1};
+    log_state->colors[LogLevel_Warning] = {ConsoleFG_Yellow | ConsoleFG_Intensity | ConsoleBG_Red};
+    log_state->colors[LogLevel_Error]   = {ConsoleFG_Magenta| ConsoleFG_Intensity | ConsoleBG_Grey};
+    log_state->colors[LogLevel_Info]    = {ConsoleFG_Black  | ConsoleFG_Intensity | ConsoleBG_Red};
+    log_state->colors[LogLevel_Debug]   = {ConsoleFG_Cyan   | ConsoleFG_Intensity | ConsoleBG_Yellow};
+    log_state->colors[LogLevel_Fatal]   = {ConsoleFG_Red    | ConsoleFG_Intensity | ConsoleBG_Grey};
+    
+        
 }
 
 //TODO: Replace internal, from gw_tool
@@ -1110,6 +1166,104 @@ sl_error_message_box_fatal(char* text, char* caption = "FATAL ERROR!")
 //END Platform Independent --------------
 
 // LogState Options --------------
+
+LogLevelColor sl_loglevel_color_get(LogLevel level)
+{
+    LogState* log_state = sl_logstate_get();
+    if(log_state){
+        return(log_state->colors[level]);
+    }
+    else {
+        LogLevelColor color = {};
+        return(color);
+    }    
+}
+
+//Changes the color scheme (foregound and background) for a log_level
+//Returns the previous color value and sets a new value. User is reponsible for saving prev value.
+LogLevelColor sl_loglevel_color_set(LogLevel level, uint8 color)
+{
+    LogState* log_state = sl_logstate_get();
+    if(log_state){
+        LogLevelColor prev_color = log_state->colors[level];
+        if(log_state->intense_fg_colors) {
+            color |= ConsoleFG_Intensity;
+        }
+        log_state->colors[level].color = color;
+        return(prev_color);
+    }
+    else {
+        LogLevelColor no_result = {(uint8)-1};
+        Assert(!"Log state not initialized");
+        return(no_result);
+    }
+
+}
+//Changes the color scheme (foregound and background) for a log_level
+//Returns the previous color value and sets a new value. User is reponsible for saving prev value.
+LogLevelColor sl_loglevel_color_set(LogLevel level, uint8 foreground, uint8 background)
+{
+    LogState* log_state = sl_logstate_get();
+    if(log_state){
+        LogLevelColor prev_color = log_state->colors[level];
+        uint8 new_color = (uint8)(foreground|background);
+        if(log_state->intense_fg_colors) {
+            new_color |= ConsoleFG_Intensity;
+        }
+
+        log_state->colors[level].color = new_color;
+        return(prev_color);
+    }
+    else {
+        LogLevelColor no_result = {(uint8)-1};
+        Assert(!"Log state not initialized");
+        return(no_result);
+    }
+}
+
+//Changes the foregound colorfor a log_level
+//Returns the previous color value and sets a new value. User is reponsible for saving prev value.
+LogLevelColor sl_loglevel_color_fg_set(LogLevel level, uint8 foreground)
+{
+    LogState* log_state = sl_logstate_get();
+    if(log_state){
+        LogLevelColor prev_color = log_state->colors[level];
+        uint8 prev_bg = SL_EXTRACT_BG(prev_color.color);
+        uint8 new_color = foreground|prev_bg;
+        if(log_state->intense_fg_colors) {
+            new_color |= ConsoleFG_Intensity;
+        }
+        log_state->colors[level].color = new_color;
+        return(prev_color);
+    }
+    else {
+        LogLevelColor no_result = {(uint8)-1};
+        Assert(!"Log state not initialized");
+        return(no_result);
+    }
+
+}
+//Changes the background color for a log_level
+//Returns the previous color value and sets a new value. User is reponsible for saving prev value.
+LogLevelColor sl_loglevel_color_bg_set(LogLevel level, uint8 background)
+{
+    LogState* log_state = sl_logstate_get();
+    if(log_state){
+        LogLevelColor prev_color = log_state->colors[level];
+        uint8 prev_fg = SL_EXTRACT_FG(prev_color.color);
+        uint8 new_color = prev_fg|background;
+        if(log_state->intense_fg_colors) {
+            new_color |= ConsoleFG_Intensity;
+        }
+        log_state->colors[level].color = new_color;
+        return(prev_color);
+    }
+    else {
+        LogLevelColor no_result = {(uint8)-1};
+        Assert(!"Log state not initialized");
+        return(no_result);
+    }
+}
 
 
 void sl_logstate_auto_newlines_set(bool32 value)
