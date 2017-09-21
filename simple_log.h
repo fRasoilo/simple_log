@@ -255,12 +255,15 @@ struct LogState
     //Options struct
     bool32 auto_newlines           = true;
     bool32 intense_fg_colors       = true;
-
     bool32 override_log_file       = false;
     bool32 display_file_in_log     = false;
     bool32 display_function_in_log = false;
     bool32 display_line_in_log     = false;
 
+    //Internal flag that acts as a shortcut so we can figure out if the normal log's colors have been modified.
+    bool32 loglevel_normal_modified = false;
+    //
+    
     LogLevelColor colors[LogLevel_Count];
     
     
@@ -381,25 +384,27 @@ void sl_time_string_get(DateAndTime date_and_time, LogBuffer* buffer, char* sepa
 #define sl_print_color(Text,TextColor)  sl_win32_print_color(Text, TextColor)
 #define sl_print(Text)                  sl_win32_string_write_to_console(Text)
 
-#define SL_CONSOLE_FG_BLACK     0x0000
-#define SL_CONSOLE_FG_BLUE      0x0001
-#define SL_CONSOLE_FG_GREEN     0x0002
-#define SL_CONSOLE_FG_CYAN      0x0003
-#define SL_CONSOLE_FG_RED       0x0004
-#define SL_CONSOLE_FG_MAGENTA   0x0005
-#define SL_CONSOLE_FG_YELLOW    0x0006
-#define SL_CONSOLE_FG_GREY      0x0007
-#define SL_CONSOLE_FG_INTENSITY 0x0008 //foreground color is intensified.
+#define SL_CONSOLE_FG_BLACK      0x00
+#define SL_CONSOLE_FG_BLUE       0x01
+#define SL_CONSOLE_FG_GREEN      0x02
+#define SL_CONSOLE_FG_CYAN       0x03
+#define SL_CONSOLE_FG_RED        0x04
+#define SL_CONSOLE_FG_MAGENTA    0x05
+#define SL_CONSOLE_FG_YELLOW     0x06
+#define SL_CONSOLE_FG_GREY       0x07
+#define SL_CONSOLE_FG_INTENSITY  0x08 //foreground color is intensified.
 
-#define SL_CONSOLE_BG_BLACK     0x0000 //TODO: Is this black or the current color of the console?
-#define SL_CONSOLE_BG_BLUE      0x0010
-#define SL_CONSOLE_BG_GREEN     0x0020
-#define SL_CONSOLE_BG_CYAN      0x0030
-#define SL_CONSOLE_BG_RED       0x0040
-#define SL_CONSOLE_BG_MAGENTA   0x0050
-#define SL_CONSOLE_BG_YELLOW    0x0060
-#define SL_CONSOLE_BG_GREY      0x0070
-#define SL_CONSOLE_BG_INTENSITY 0x0080 // background color is intensified.
+#define SL_CONSOLE_BG_BLACK      0x00 //TODO: Is this black or the current color of the console?
+#define SL_CONSOLE_BG_BLUE       0x10
+#define SL_CONSOLE_BG_GREEN      0x20
+#define SL_CONSOLE_BG_CYAN       0x30
+#define SL_CONSOLE_BG_RED        0x40
+#define SL_CONSOLE_BG_MAGENTA    0x50
+#define SL_CONSOLE_BG_YELLOW     0x60
+#define SL_CONSOLE_BG_GREY       0x70
+#define SL_CONSOLE_BG_INTENSITY  0x80 // background color is intensified.
+
+#define SL_CONSOLE_DEFAULT_VALUE 0xFF
 
 #define SL_EXTRACT_BG(Value) (Value & 0xF0)
 #define SL_EXTRACT_FG(Value) (Value & 0x0F)
@@ -619,7 +624,12 @@ sl_win32_default_log_to_console(LogState* log_state, char* text)
     switch(log_state->log_level)
     {
         //TODO: Check if Normal has been modified, call sl_print_color and use provided values if it has.
-        case LogLevel_Normal : { sl_print(buffer_to_write_out.buffer); }break;
+        case LogLevel_Normal :
+        {
+            if(log_state->colors[LogLevel_Normal].color == SL_CONSOLE_DEFAULT_VALUE) sl_print(buffer_to_write_out.buffer);
+            else sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Normal].color);
+        }break;
+        
         case LogLevel_Warning: { sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Warning].color); }break;
         case LogLevel_Error  : { sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Error].color);   }break;
         case LogLevel_Info   : { sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Info].color);    }break;
@@ -706,7 +716,7 @@ void sl_log_init(LogMode log_mode, char* file_path = '\0',
     Assert(log_state->error_message_box_func);
 
     //Init the color schemes
-    log_state->colors[LogLevel_Normal]  = {(uint8)-1};
+    log_state->colors[LogLevel_Normal]  = {(uint8)SL_CONSOLE_DEFAULT_VALUE};
     log_state->colors[LogLevel_Warning] = {ConsoleFG_Yellow | ConsoleFG_Intensity | ConsoleBG_Red};
     log_state->colors[LogLevel_Error]   = {ConsoleFG_Magenta| ConsoleFG_Intensity | ConsoleBG_Grey};
     log_state->colors[LogLevel_Info]    = {ConsoleFG_Black  | ConsoleFG_Intensity | ConsoleBG_Red};
@@ -1193,7 +1203,7 @@ LogLevelColor sl_loglevel_color_set(LogLevel level, uint8 color)
         return(prev_color);
     }
     else {
-        LogLevelColor no_result = {(uint8)-1};
+        LogLevelColor no_result = {(uint8)SL_CONSOLE_DEFAULT_VALUE};
         Assert(!"Log state not initialized");
         return(no_result);
     }
@@ -1215,7 +1225,7 @@ LogLevelColor sl_loglevel_color_set(LogLevel level, uint8 foreground, uint8 back
         return(prev_color);
     }
     else {
-        LogLevelColor no_result = {(uint8)-1};
+        LogLevelColor no_result = {(uint8)SL_CONSOLE_DEFAULT_VALUE};
         Assert(!"Log state not initialized");
         return(no_result);
     }
@@ -1237,7 +1247,7 @@ LogLevelColor sl_loglevel_color_fg_set(LogLevel level, uint8 foreground)
         return(prev_color);
     }
     else {
-        LogLevelColor no_result = {(uint8)-1};
+        LogLevelColor no_result = {(uint8)SL_CONSOLE_DEFAULT_VALUE};
         Assert(!"Log state not initialized");
         return(no_result);
     }
@@ -1259,7 +1269,7 @@ LogLevelColor sl_loglevel_color_bg_set(LogLevel level, uint8 background)
         return(prev_color);
     }
     else {
-        LogLevelColor no_result = {(uint8)-1};
+        LogLevelColor no_result = {(uint8)SL_CONSOLE_DEFAULT_VALUE};
         Assert(!"Log state not initialized");
         return(no_result);
     }
