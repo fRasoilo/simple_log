@@ -5,23 +5,6 @@
   ->
 
 */
-  
-//TODO:
-// - [x]Test all f variants.
-// - [x]Actually make the define SIMPLE_LOG_IMPLEMENTATION do something.
-// - [x]Add option to change colors for the different logging functions.
-// - [x]Make sure to update the buffer used everytime we use vsprintf (going to wrap vsprintf to avoid bug due to forgetting to update)
-// - [x]Add option to add file, line, function info to logs.
-
-// - [x]Organize into header vs implementation
-// - [x]Option to overrride or just write a new log file.
-// - [x]Check the return values on the logging functions.
-// - [x]Write API descriptions including default behaviours and quick usage.
-
-// - []Clear Todos
-// - []Decide what to do with the Window Logging
-// - [x]License
-// - []Summary
 
 #pragma once
 
@@ -29,16 +12,22 @@
 //Simple Log --------------
 
 //=============================================================================
-// Summary
+// Summary :
+//
+// simple_log is a simple to use logging utility written in C++.
+//
+// It is a single file header that implements logging utility functions (to a file or a console)
+// that should be very easy to drop-in and start using in any pre-existing project.
+//
 //
 //=============================================================================
 // Revision History
-//
+// 
 //
 //===============================================================================  
 //  You MUST define SIMPLE_LOG_IMPLEMENTATION
 //
-//  in exactly one C or C++ file that includes this header, BEFORE the include
+//  in exactly *one* C or C++ file that includes this header, BEFORE the include
 //  like so:
 //
 //  #define SIMPLE_LOG_IMPLEMENTATION
@@ -99,9 +88,10 @@ typedef int32 bool32;
 // [INTERNAL] Utility Macros
 #define Bytes(n)  (n)
 #define KiloBytes(n)  (Bytes(n)*1024)
-#define InvalidCodePath Assert(!"InvalidCodePath")
+#define InvalidCodePath SL_Assert(!"InvalidCodePath")
 #define InvalidDefaultCase default: {InvalidCodePath;} break
-#define Assert(Expression) if(!(Expression)) {*(int *)0 = 0;}
+
+#define SL_Assert(Expression) if(!(Expression)) {*(int *)0 = 0;}
 
 //[INTERNAL] Function Pointers Typedefs
 struct LogState;
@@ -165,22 +155,26 @@ void sl_log_init(LogMode log_mode, char* file_path = '\0',
 //A macro that is defined depending on the current platform:
 //This is used to give the log_state a handle to a user created window where we can log to. CURRENTLY WIN32 only.
   
-//sl_log_window_set(Handle)  
-//   bool32 sl_win32_log_window_set(HWND Handle) 
+// sl_log_window_set(Handle)  
+//    bool32 sl_win32_log_window_set(HWND Handle) 
 
 //=============================================================================
 // API - Logging
 //
 //=============================================================================
 
+
 //All the avaliable log functions have basically the same purpose, to log some text to the console or to a file.
 //All the log functions also have a 'f' variant that supports formatted text.
 //The main differences are :
 // - error, warning, info, fatal are pre-appended with the current log level. e.g any text logged with sl_log_error starts with '[ERROR]:' .
-// - fatal WILL ASSERT and CRASH ON PURPOSE.  TODO: break into debugger
+// - fatal WILL ASSERT and CRASH ON PURPOSE.
 // - the different log levels have different color schemes when logged to the console.
 // - the log functions return a bool32 result that determines whether the logging was done succesfully or not.
-  
+
+// **NOTE** These are not declared here but this is still part of the logging API
+
+
 //bool32 sl_log(char* text);
 //bool32 sl_logf(char* fmt, ...);
   
@@ -201,7 +195,7 @@ void sl_log_init(LogMode log_mode, char* file_path = '\0',
 
 
 //Used to open an error message_box with the given text and caption.
-//The 'fatal' variant WILL ASSERT AND CRASH ON PURPOSE. TODO: break into debugger.
+//The 'fatal' variant WILL ASSERT AND CRASH ON PURPOSE. 
   
 void   sl_error_message_box(char* text, char* caption = "Error!");
 void   sl_error_message_box_fatal(char* text, char* caption = "FATAL ERROR!");
@@ -251,7 +245,7 @@ LogLevelColor sl_loglevel_color_get(LogLevel level);
 //They are put here for API reference.
 enum ConsoleFG
 {
-ConsoleFG_Black     
+ConsoleFG_Default     
 ConsoleFG_Blue      
 ConsoleFG_Green     
 ConsoleFG_Cyan       
@@ -265,7 +259,7 @@ ConsoleFG_Intensity
 
 enum ConsoleBG
 {
-ConsoleBG_Black     
+ConsoleBG_Default     
 ConsoleBG_Blue      
 ConsoleBG_Green     
 ConsoleBG_Cyan       
@@ -348,7 +342,7 @@ struct LogBuffer
     uint32 used;
 };
 
-global_variable LogBuffer log_buffer;
+global_variable LogBuffer log_buffer_; //TODO: Is this necessary?
 //
 
 
@@ -534,7 +528,7 @@ void sl_time_string_get(DateAndTime date_and_time, LogBuffer* buffer, char* sepa
 #define sl_print_color(Text,TextColor)  sl_win32_print_color(Text, TextColor)
 #define sl_print(Text)                  sl_win32_string_write_to_console(Text)
 
-#define SL_CONSOLE_FG_BLACK      0x00
+#define SL_CONSOLE_FG_DEFAULT    0x00
 #define SL_CONSOLE_FG_BLUE       0x01
 #define SL_CONSOLE_FG_GREEN      0x02
 #define SL_CONSOLE_FG_CYAN       0x03
@@ -544,7 +538,7 @@ void sl_time_string_get(DateAndTime date_and_time, LogBuffer* buffer, char* sepa
 #define SL_CONSOLE_FG_GREY       0x07
 #define SL_CONSOLE_FG_INTENSITY  0x08 //foreground color is intensified.
 
-#define SL_CONSOLE_BG_BLACK      0x00 //TODO: Is this black or the current color of the console?
+#define SL_CONSOLE_BG_DEFAULT    0x00 
 #define SL_CONSOLE_BG_BLUE       0x10
 #define SL_CONSOLE_BG_GREEN      0x20
 #define SL_CONSOLE_BG_CYAN       0x30
@@ -554,7 +548,7 @@ void sl_time_string_get(DateAndTime date_and_time, LogBuffer* buffer, char* sepa
 #define SL_CONSOLE_BG_GREY       0x70
 #define SL_CONSOLE_BG_INTENSITY  0x80 // background color is intensified.
 
-#define SL_CONSOLE_DEFAULT_VALUE 0xFF
+#define SL_CONSOLE_DEFAULT       0x00
 
 #define SL_EXTRACT_BG(Value) (Value & 0xF0)
 #define SL_EXTRACT_FG(Value) (Value & 0x0F)
@@ -569,7 +563,7 @@ void sl_time_string_get(DateAndTime date_and_time, LogBuffer* buffer, char* sepa
 //[API]
 enum ConsoleFG
 {
-    ConsoleFG_Black     = SL_CONSOLE_FG_BLACK,
+    ConsoleFG_Default   = SL_CONSOLE_FG_DEFAULT,
     ConsoleFG_Blue      = SL_CONSOLE_FG_BLUE,
     ConsoleFG_Green     = SL_CONSOLE_FG_GREEN,
     ConsoleFG_Cyan      = SL_CONSOLE_FG_CYAN,      
@@ -584,7 +578,7 @@ enum ConsoleFG
 //[API]
 enum ConsoleBG
 {
-    ConsoleBG_Black     = SL_CONSOLE_BG_BLACK,
+    ConsoleBG_Default     = SL_CONSOLE_BG_DEFAULT,
     ConsoleBG_Blue      = SL_CONSOLE_BG_BLUE,
     ConsoleBG_Green     = SL_CONSOLE_BG_GREEN,
     ConsoleBG_Cyan      = SL_CONSOLE_BG_CYAN,      
@@ -651,7 +645,7 @@ DateAndTime sl_win32_date_and_time_get()
     return(date_and_time);
 }
 
-
+//Needs User32.lib
 internal bool32 sl_win32_default_log_to_list_box(LogState* log_state, char* text)
 {
     bool32 result = false;
@@ -662,46 +656,43 @@ internal bool32 sl_win32_default_log_to_list_box(LogState* log_state, char* text
     
     /*
       IMPORTANT
-      NOTE:We must make sure to call Win32SetLogWindow to initialize the
+      NOTE:We must make sure to call sl_log_window_set(HANDLE) to initialize the
       window that will be used for logging. This can be done before or after
-      InitLog is called. As matter of convention it is usually called after.
+      sl_log_init is called. As matter of convention it is usually called after.
 
-      Before any logging can take place in Win32 we must call InitLog and
-      Win32SetLogWindow at least once!
+      Before any window logging can take place in Win32 we must call
+      sl_log_window_set(HANDLE) at least once!
     */
+    if(log_state->DialogHandle)
+    {
+        LogBuffer buffer_to_write_out = {};
+        sl_buffer_append_string(&buffer_to_write_out,"[");
 
-    /*
-      if(log_state->DialogHandle)
-      {
-      LogBuffer buffer_to_write_out = {};
-      sl_buffer_append_string(&buffer_to_write_out,"[");
-
-      sl_date_string_get(sl_win32_date_and_time_get(),&buffer_to_write_out);
-      sl_time_string_get(sl_win32_date_and_time_get(),&buffer_to_write_out);
+        sl_date_string_get(sl_win32_date_and_time_get(),&buffer_to_write_out);
+        sl_time_string_get(sl_win32_date_and_time_get(),&buffer_to_write_out);
 
         
-      sl_buffer_append_string(&buffer_to_write_out,"] ");
-      sl_buffer_append_string(&buffer_to_write_out,text);
+        sl_buffer_append_string(&buffer_to_write_out,"] ");
+        sl_buffer_append_string(&buffer_to_write_out,text);
 
-      #define IDC_LIST_LOG 12
-      HWND ListHandle = GetDlgItem(log_state->DialogHandle, IDC_LIST_LOG);
-      result = SendMessageTimeout(ListHandle,
-      LB_ADDSTRING,
-      0,
-      (LPARAM)buffer_to_write_out.buffer,
-      SMTO_NORMAL | SMTO_ABORTIFHUNG,
-      500,(PDWORD_PTR)&list_index);
-      if(result)
-      {
-      SendMessageTimeout(ListHandle,
-      LB_SETTOPINDEX,
-      list_index,
-      0,
-      SMTO_NORMAL | SMTO_ABORTIFHUNG,
-      500, 0);
-      }
-      }
-    */
+#define IDC_LIST_LOG 12
+        HWND ListHandle = GetDlgItem(log_state->DialogHandle, IDC_LIST_LOG);
+        result = SendMessageTimeout(ListHandle,
+                                    LB_ADDSTRING,
+                                    0,
+                                    (LPARAM)buffer_to_write_out.buffer,
+                                    SMTO_NORMAL | SMTO_ABORTIFHUNG,
+                                    500,(PDWORD_PTR)&list_index);
+        if(result)
+        {
+            SendMessageTimeout(ListHandle,
+                               LB_SETTOPINDEX,
+                               list_index,
+                               0,
+                               SMTO_NORMAL | SMTO_ABORTIFHUNG,
+                               500, 0);
+        }
+    }
     return(result);
 }
 
@@ -776,10 +767,9 @@ sl_win32_default_log_to_console(LogState* log_state, char* text)
 
     switch(log_state->log_level)
     {
-        //TODO: Check if Normal has been modified, call sl_print_color and use provided values if it has.
         case LogLevel_Normal :
         {
-            if(log_state->colors[LogLevel_Normal].color == SL_CONSOLE_DEFAULT_VALUE) result = sl_print(buffer_to_write_out.buffer);
+            if(log_state->colors[LogLevel_Normal].color == SL_CONSOLE_DEFAULT) result = sl_print(buffer_to_write_out.buffer);
             else  result = sl_print_color(buffer_to_write_out.buffer, log_state->colors[LogLevel_Normal].color);
         }break;
         
@@ -844,7 +834,7 @@ void sl_log_init(LogMode log_mode, char* file_path,
 {
     LogState* log_state = sl_logstate_get();
 
-    Assert(log_state);
+    SL_Assert(log_state);
     log_state->initialized = true;
     log_state->log_mode  = (LogMode)log_mode;
     log_state->file_path = file_path;
@@ -857,7 +847,7 @@ void sl_log_init(LogMode log_mode, char* file_path,
     log_state->error_message_box_func = &sl_win32_default_error_message_box;        
 #else
     //TODO: Add defaults for other OS's when needed!
-    Assert(!"No default log functions set for this OS! Crash and burn!");
+    SL_Assert(!"No default log functions set for this OS! Crash and burn!");
 #endif // _Win32
 
     
@@ -875,18 +865,26 @@ void sl_log_init(LogMode log_mode, char* file_path,
         log_state->error_message_box_func = platform_custom_error_message_box;
     }
     
-    Assert(log_state->log_to_file_func);
-    Assert(log_state->log_to_console_func);
-    Assert(log_state->log_to_window_func);
-    Assert(log_state->error_message_box_func);
+    SL_Assert(log_state->log_to_file_func);
+    SL_Assert(log_state->log_to_console_func);
+    SL_Assert(log_state->log_to_window_func);
+    SL_Assert(log_state->error_message_box_func);
 
     //Init the color schemes
-    log_state->colors[LogLevel_Normal]  = {(uint8)SL_CONSOLE_DEFAULT_VALUE};
-    log_state->colors[LogLevel_Warning] = {ConsoleFG_Yellow | ConsoleFG_Intensity | ConsoleBG_Red};
-    log_state->colors[LogLevel_Error]   = {ConsoleFG_Magenta| ConsoleFG_Intensity | ConsoleBG_Grey};
-    log_state->colors[LogLevel_Info]    = {ConsoleFG_Black  | ConsoleFG_Intensity | ConsoleBG_Red};
-    log_state->colors[LogLevel_Debug]   = {ConsoleFG_Cyan   | ConsoleFG_Intensity | ConsoleBG_Yellow};
-    log_state->colors[LogLevel_Fatal]   = {ConsoleFG_Red    | ConsoleFG_Intensity | ConsoleBG_Grey};
+    log_state->colors[LogLevel_Normal]  = {(uint8)SL_CONSOLE_FG_DEFAULT|SL_CONSOLE_BG_DEFAULT};
+    log_state->colors[LogLevel_Error]   = {ConsoleFG_Magenta| ConsoleFG_Intensity | ConsoleBG_Grey   | ConsoleBG_Intensity};
+    log_state->colors[LogLevel_Warning] = {ConsoleFG_Yellow | ConsoleFG_Intensity | ConsoleBG_Red                         };
+    log_state->colors[LogLevel_Info]    = {ConsoleFG_Green  | ConsoleFG_Intensity | ConsoleBG_Default| ConsoleBG_Intensity};
+    log_state->colors[LogLevel_Debug]   = {ConsoleFG_Cyan   | ConsoleFG_Intensity                                         };
+    log_state->colors[LogLevel_Fatal]   = {ConsoleFG_Red    | ConsoleFG_Intensity | ConsoleBG_Grey                        };
+
+    //Gentle reminder to user
+    if(log_state->override_log_file){
+        log_state->log_to_console_func(log_state,"=== LOG FILE OVERRIDE OPTION IS [TRUE] ===");
+    }
+    else{
+        log_state->log_to_console_func(log_state,"=== LOG FILE OVERRIDE OPTION IS [FALSE] ===");
+    }
     
         
 }
@@ -918,7 +916,7 @@ bool32 sl_internal_log(char* text, char* file, char* function, int line)
     //log window is presented? (To worry about in the future). For now lets just skip
     //if there is still no window        
     LogState* log_state = sl_logstate_get();
-    Assert(log_state);
+    SL_Assert(log_state);
 
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer, text);
@@ -980,7 +978,7 @@ bool32 sl_internal_log(char* text, char* file, char* function, int line)
     }
     else
     {
-        Assert(!"LogState is not initialized");
+        SL_Assert(!"LogState is not initialized");
     }
     return(result);
 }
@@ -990,7 +988,7 @@ bool32 sl_internal_log(char* text, char* file, char* function, int line)
 bool32 sl_internal_logf(char* file, char* function, int line, char* fmt, ...)
 {
     LogState* log_state = sl_logstate_get();
-    Assert(log_state);
+    SL_Assert(log_state);
     
     LogBuffer log_buffer = {};
     
@@ -1001,7 +999,7 @@ bool32 sl_internal_logf(char* file, char* function, int line, char* fmt, ...)
     va_end(args);
         
     if(result < 0){
-        Assert(!"Something bad happened");
+        SL_Assert(!"Something bad happened");
     }
 
     if(log_state->display_file_in_log){
@@ -1075,7 +1073,7 @@ bool32 sl_internal_logf(char* file, char* function, int line, char* fmt, ...)
     }
     else
     {
-        Assert(!"LogState is not initialized");
+        SL_Assert(!"LogState is not initialized");
     }
     return(result);
 }
@@ -1086,7 +1084,7 @@ bool32 sl_internal_logf(char* file, char* function, int line, char* fmt, ...)
 bool32 sl_internal_log_error(char* text, char* file, char* function, int line)
 {
     LogState* log_state = sl_logstate_get();
-    Assert(log_state);
+    SL_Assert(log_state);
 
     LogBuffer log_buffer = {};
     
@@ -1104,7 +1102,7 @@ bool32 sl_internal_log_error(char* text, char* file, char* function, int line)
 bool32 sl_internal_log_errorf(char* file, char* function, int line, char* fmt, ...)
 {
     LogState* log_state = sl_logstate_get();
-    Assert(log_state);
+    SL_Assert(log_state);
 
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[ERROR]: " );
@@ -1115,7 +1113,7 @@ bool32 sl_internal_log_errorf(char* file, char* function, int line, char* fmt, .
     va_end(args);
 
     if(result < 0){
-        Assert(!"Something bad happened");
+        SL_Assert(!"Something bad happened");
     }
     
     sl_log_level_change(LogLevel_Error);
@@ -1130,7 +1128,7 @@ bool32 sl_internal_log_errorf(char* file, char* function, int line, char* fmt, .
 bool32 sl_internal_log_warning(char* text, char* file, char* function, int line)
 {
     LogState* log_state = sl_logstate_get();
-    Assert(log_state);
+    SL_Assert(log_state);
 
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[WARNING]: ");
@@ -1148,7 +1146,7 @@ bool32 sl_internal_log_warning(char* text, char* file, char* function, int line)
 bool32 sl_internal_log_warningf(char* file, char* function, int line, char* fmt, ...)
 {
     LogState* log_state = sl_logstate_get();
-    Assert(log_state);
+    SL_Assert(log_state);
 
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[WARNING]: ");
@@ -1159,7 +1157,7 @@ bool32 sl_internal_log_warningf(char* file, char* function, int line, char* fmt,
     va_end(args);
 
     if(result < 0){
-        Assert(!"Something bad happened");
+        SL_Assert(!"Something bad happened");
     }
 
             
@@ -1174,7 +1172,7 @@ bool32 sl_internal_log_warningf(char* file, char* function, int line, char* fmt,
 bool32 sl_internal_log_info(char* text, char* file, char* function, int line)
 {
     LogState* log_state = sl_logstate_get();
-    Assert(log_state);
+    SL_Assert(log_state);
     
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[INFO]: ");
@@ -1192,7 +1190,7 @@ bool32 sl_internal_log_info(char* text, char* file, char* function, int line)
 bool32 sl_internal_log_infof(char* file, char* function, int line, char* fmt, ...)
 {
     LogState* log_state = sl_logstate_get();
-    Assert(log_state);
+    SL_Assert(log_state);
 
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[INFO]: ");
@@ -1203,7 +1201,7 @@ bool32 sl_internal_log_infof(char* file, char* function, int line, char* fmt, ..
     va_end(args);
     
     if(result < 0){
-        Assert(!"Something bad happened");
+        SL_Assert(!"Something bad happened");
     }
     
     sl_log_level_change(LogLevel_Info);
@@ -1218,7 +1216,7 @@ bool32 sl_internal_log_infof(char* file, char* function, int line, char* fmt, ..
 bool32 sl_internal_log_debug(char* text, char* file, char* function, int line)
 {
     LogState* log_state = sl_logstate_get();
-    Assert(log_state);
+    SL_Assert(log_state);
 
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[DEBUG]: " );
@@ -1235,7 +1233,7 @@ bool32 sl_internal_log_debug(char* text, char* file, char* function, int line)
 bool32 sl_internal_log_debugf(char* file, char* function, int line, char* fmt, ...)
 {
     LogState* log_state = sl_logstate_get();
-    Assert(log_state);
+    SL_Assert(log_state);
 
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[DEBUG]: " );
@@ -1246,7 +1244,7 @@ bool32 sl_internal_log_debugf(char* file, char* function, int line, char* fmt, .
     va_end(args);
     
     if(result < 0){
-        Assert(!"Something bad happened");
+        SL_Assert(!"Something bad happened");
     }
     
     sl_log_level_change(LogLevel_Debug);
@@ -1261,7 +1259,7 @@ bool32 sl_internal_log_debugf(char* file, char* function, int line, char* fmt, .
 void sl_internal_log_fatal(char* text, char* file, char* function, int line)
 {
     LogState* log_state = sl_logstate_get();
-    Assert(log_state);
+    SL_Assert(log_state);
 
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[***FATAL ERROR***]: ");
@@ -1272,7 +1270,7 @@ void sl_internal_log_fatal(char* text, char* file, char* function, int line)
     sl_log_level_reset();
     
     //NOTE: Crash!
-    Assert(!"FATAL ERROR");
+    SL_Assert(!"FATAL ERROR");
 }
 
 #define sl_log_fatalf(fmt, ...) sl_internal_log_fatalf(__FILE__,__FUNCTION__,__LINE__,fmt, __VA_ARGS__)
@@ -1280,7 +1278,7 @@ void sl_internal_log_fatal(char* text, char* file, char* function, int line)
 void sl_internal_log_fatalf(char* file, char* function, int line,char* fmt, ...)
 {
     LogState* log_state = sl_logstate_get();
-    Assert(log_state);
+    SL_Assert(log_state);
 
     LogBuffer log_buffer = {};
     sl_buffer_append_string(&log_buffer,"[***FATAL ERROR***]: ");
@@ -1291,20 +1289,20 @@ void sl_internal_log_fatalf(char* file, char* function, int line,char* fmt, ...)
     va_end(args);
     
     if(result < 0){
-        Assert(!"Something bad happened");
+        SL_Assert(!"Something bad happened");
     }
 
     sl_log_level_change(LogLevel_Fatal);
     sl_internal_log(log_buffer.buffer, file, function, line);
     sl_log_level_reset();
     //NOTE: Crash on purpose!
-    Assert(!"FATAL ERROR");
+    SL_Assert(!"FATAL ERROR");
 }
 
 void sl_error_message_box(char* text, char* caption)
 {
     LogState* log_state = sl_logstate_get();
-    Assert(log_state);
+    SL_Assert(log_state);
     if(log_state->initialized)
     {
         log_state->error_message_box_func(text, caption);
@@ -1314,13 +1312,12 @@ void sl_error_message_box(char* text, char* caption)
 void sl_error_message_box_fatal(char* text, char* caption)
 {
     LogState* log_state = sl_logstate_get();
-    Assert(log_state);
+    SL_Assert(log_state);
     if(log_state->initialized)
     {
         log_state->error_message_box_func(text, caption);
     }
-    //TODO: Replace with debug break!
-    Assert(!"FATAL ERROR");
+    SL_Assert(!"FATAL ERROR");
 }
 
 
@@ -1362,8 +1359,8 @@ LogLevelColor sl_loglevel_color_set(LogLevel level, uint8 color)
         return(prev_color);
     }
     else {
-        LogLevelColor no_result = {(uint8)SL_CONSOLE_DEFAULT_VALUE};
-        Assert(!"Log state not initialized");
+        LogLevelColor no_result = {(uint8)SL_CONSOLE_DEFAULT};
+        SL_Assert(!"Log state not initialized");
         return(no_result);
     }
 
@@ -1384,8 +1381,8 @@ LogLevelColor sl_loglevel_color_set(LogLevel level, uint8 foreground, uint8 back
         return(prev_color);
     }
     else {
-        LogLevelColor no_result = {(uint8)SL_CONSOLE_DEFAULT_VALUE};
-        Assert(!"Log state not initialized");
+        LogLevelColor no_result = {(uint8)SL_CONSOLE_DEFAULT};
+        SL_Assert(!"Log state not initialized");
         return(no_result);
     }
 }
@@ -1406,8 +1403,8 @@ LogLevelColor sl_loglevel_color_fg_set(LogLevel level, uint8 foreground)
         return(prev_color);
     }
     else {
-        LogLevelColor no_result = {(uint8)SL_CONSOLE_DEFAULT_VALUE};
-        Assert(!"Log state not initialized");
+        LogLevelColor no_result = {(uint8)SL_CONSOLE_DEFAULT};
+        SL_Assert(!"Log state not initialized");
         return(no_result);
     }
 
@@ -1428,8 +1425,8 @@ LogLevelColor sl_loglevel_color_bg_set(LogLevel level, uint8 background)
         return(prev_color);
     }
     else {
-        LogLevelColor no_result = {(uint8)SL_CONSOLE_DEFAULT_VALUE};
-        Assert(!"Log state not initialized");
+        LogLevelColor no_result = {(uint8)SL_CONSOLE_DEFAULT};
+        SL_Assert(!"Log state not initialized");
         return(no_result);
     }
 }
@@ -1512,8 +1509,7 @@ internal void
 sl_buffer_append_string(LogBuffer* log_buffer, char* string)
 {
     uint32 string_size = sl_string_size(string);
-    //TODO: In the future, should grow the buffer...
-    Assert((string_size + log_buffer->used) < LOG_BUFFER_SIZE); 
+    SL_Assert((string_size + log_buffer->used) < LOG_BUFFER_SIZE); 
     char* str_ptr = string;
     for(int32 index = log_buffer->used ;*str_ptr; ++index)
     {
@@ -1528,7 +1524,7 @@ internal void
 sl_buffer_append_newline(LogBuffer* log_buffer)
 {
     uint32 string_size = sizeof('\n');                             
-    Assert((string_size + log_buffer->used) < LOG_BUFFER_SIZE); 
+    SL_Assert((string_size + log_buffer->used) < LOG_BUFFER_SIZE); 
     log_buffer->buffer[log_buffer->used] = '\n';
     log_buffer->used += string_size;
     log_buffer->buffer[log_buffer->used] = '\0';    
@@ -1537,7 +1533,10 @@ sl_buffer_append_newline(LogBuffer* log_buffer)
 internal int32
 sl_internal_print_to_buffer(LogBuffer* log_buffer, char* fmt,va_list args)
 {
-    int32 result = vsprintf(log_buffer->buffer, fmt,args);
+    //NOTE: Becasue vsprintf wont respect if there is already something in the buffer, we use a temp_buffer so we dont override the original.
+    LogBuffer temp_buffer = {};
+    int32 result = vsprintf(temp_buffer.buffer, fmt,args);
+    sl_buffer_append_string(log_buffer, temp_buffer.buffer);
     log_buffer->used += result*sizeof( log_buffer->buffer[0]);
     return(result);
 }
