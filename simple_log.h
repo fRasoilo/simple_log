@@ -1,13 +1,4 @@
 
-/*
-  -Changes from internal lib to simple_log.h and some takeaways
-
-  //-> got rid of my own printf like function. replaced with std lib vsprintf
-  //-> thinking about what API to present to end-user and fighting my own assumptions and knowledge of how the lib works
-  -> writing documenation for the API and keeping in mind that end-user will not know what I know, so NO assumptions about how obvious something is or isnt.
-
-*/
-
 #pragma once
 
 
