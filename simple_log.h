@@ -29,7 +29,7 @@
 //
 //  All other files should just include "simple_log.h" without the define
 //=============================================================================
-// Basic Usage :
+// Basic Usage / Quick Start :
 //
 // After defining SIMPLE_LOG_IMPLEMENTATION
 //
