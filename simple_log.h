@@ -1,8 +1,10 @@
 
 /*
-  -Changes from internal lib to simple_log.h
+  -Changes from internal lib to simple_log.h and some takeaways
 
-  ->
+  //-> got rid of my own printf like function. replaced with std lib vsprintf
+  //-> thinking about what API to present to end-user and fighting my own assumptions and knowledge of how the lib works
+  -> writing documenation for the API and keeping in mind that end-user will not know what I know, so NO assumptions about how obvious something is or isnt.
 
 */
 
@@ -414,7 +416,7 @@ struct LogState
     //NOTE(filipe): Hooks to the MessageBox Functions
     platform_custom_error_message_box* error_message_box_func;
 
-    //Options struct
+    //Options 
     bool32 auto_newlines           = true;
     bool32 intense_fg_colors       = true;
     bool32 override_log_file       = false;
