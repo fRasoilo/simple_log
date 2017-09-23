@@ -1,0 +1,45 @@
+
+I have recently released a small utility library called 'simple_log' (link to repo) , simple_log is a simple to use
+logging utility written in C++. It is a ingle file header that implements logging utility functions (to file or console) that
+should be very easy to to drop-in and start using in any pre-existing project. It currently only supports Windows applications.
+
+simple_log came from me deciding to tidy up some logging code that I have been using in my own projects for some time now and making it available for anyone
+who might want to use it. The proccess of transforming code which I have been using only for my myself to code which might be used by others was interesting and
+I wanted to write a small post about some things that stuck with me. A lot of these might be obvious to some, specially if you are a more experienced developer.
+But for less experienced people it might be interesting to read. Let's get started.
+
+1) Getting rid of my own implementation of 'printf'
+
+About a year ago I got interested in understanding how variable argument functions work in C/C++ and how functions such as 'printf' work.
+So I decided to write my own implementation of printf and sprintf for Windows, which I did and have been using ever since in my own internal code. It has it's own quirks and bugs (which I have been slowly fixing as they pop up),
+but it was a great learning experience which I hope to write about some day.
+
+Getting rid of it was the first decision I made when writing simple_log, I didn't want anyone to have to deal with my own untested printf like functions.
+Replacing them was not really that hard as the input and output to my own implementations were exactly modelled on the standard library versions, so it was as easy as changing 'gw_sprintf' to 'sprintf'. That was it!
+
+The standard library functions are well known and tested. As much as I like to write my own stuff, it is more important to me that there are as few points of friction between the code I am providing and any one who might choose to use it.
+Having to deal with a weird bug in a weird implementation of sprintf would be a HUGE point of friction.
+
+2) Thinking about the API and fighting my own knowledge of the code.
+
+Thinking about what API to present to a user of this code was really interesting, I realized that because I was the only user of this code there was no explicitly defined API.
+This meant that if for example I wanted to change log levels I would sometimes change the value in the struct or sometimes call the function to change the log level.
+My own knowledge of the code made it somewhat worse. Since I wanted this utility to be easy for people to use quickly I had to fix this problem.
+Thinking about a simple and small API allowed me to better understand which parts should be presented and which parts are internal and not really that important for a user to know about.
+Anyone interested is still encouraged to go look at those internal parts, but they are not necessary to know about if you just want to get a quick-start. Another nice side-effect is that by thinking about other people who might
+want to use this code, I also made it easier for me to use it. This is probably something I should have been doing for my own personal projects but from now on I will program as if other people will consume this code. Future me thanks me!
+
+
+3) Writing documentation
+
+This point ties a little bit with the one above, in the way that I had to fight my own knowledge of the code and my own assumptions about how obvious something might be.
+So when writing about each function or option in the API I tried to look at them with fresh eyes, explain how and when they are used, and anything that might seem confusing about them.
+Going trought this process helped me understand the code better and even make some changes to the API to make things easier or less ambiguous.
+
+
+That's it, again just wanted to share some quick thoughts about some things that stuck with me and that I'll be keeping in mind.
+I hope someone finds this post useful and that someone enjoys using simple_log.
+
+If there any corrections or questions, you can reach on twitter @filipe_rasoilo.
+
+Until next time!
