@@ -19,6 +19,12 @@
 //  09-23-2017 Initial Release
 //
 //===============================================================================  
+// Todo List :
+// 
+//  - Support for Linux
+//  - More formating options for dates
+//
+//===============================================================================  
 //  You MUST define SIMPLE_LOG_IMPLEMENTATION
 //
 //  in exactly *one* C or C++ file that includes this header, BEFORE the include
